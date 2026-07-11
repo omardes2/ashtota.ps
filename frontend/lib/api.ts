@@ -16,9 +16,13 @@ interface ApiGroup { id: number; name: string; required: boolean; min: number; m
 interface ApiBranch { id: number; name: string; city: string; area: string; phone: string; whatsapp: string; address: string; isOpen: boolean; hours: string; allowDelivery: boolean; allowPickup: boolean; minOrder: number; prepTime: number }
 interface ApiProduct { id: number; name: string; categoryId: number; desc: string; emoji: string; basePrice: number; salePrice: number | null; isFeatured: boolean; isNew: boolean; points: number; optionGroups: number[]; availability: { branchId: number; price: number; inStock: boolean }[] }
 interface ApiZone { id: number; branchId: number; name: string; fee: number; minOrder: number; freeOver: number | null }
+interface ApiBrand {
+  name: string; tagline: string; whatsapp: string; instagram: string; facebook: string; tiktok: string;
+  heroTitle: string; heroSubtitle: string; heroImage: string;
+}
 interface ApiMenu {
   ok: boolean;
-  brand?: { name: string; whatsapp: string; instagram: string; facebook: string; tiktok: string };
+  brand?: ApiBrand;
   branches: ApiBranch[];
   categories: { id: number; name: string; emoji: string; order: number }[];
   optionGroups: Record<string, ApiGroup>;
@@ -26,7 +30,20 @@ interface ApiMenu {
   deliveryZones: ApiZone[];
 }
 
+export interface BrandInfo {
+  name: string;
+  tagline: string;
+  whatsapp: string;
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  heroImage: string;
+}
+
 export interface MappedMenu {
+  brand: BrandInfo;
   branches: Branch[];
   categories: Category[];
   products: Product[];
@@ -84,7 +101,20 @@ function mapMenu(api: ApiMenu): MappedMenu {
     };
   });
 
-  return { branches, categories, products, zones };
+  const b = api.brand;
+  const brand: BrandInfo = {
+    name: b?.name || "قشطوطة بلبن",
+    tagline: b?.tagline || "",
+    whatsapp: b?.whatsapp || "",
+    instagram: b?.instagram || "",
+    facebook: b?.facebook || "",
+    tiktok: b?.tiktok || "",
+    heroTitle: b?.heroTitle || "",
+    heroSubtitle: b?.heroSubtitle || "",
+    heroImage: b?.heroImage || "",
+  };
+
+  return { brand, branches, categories, products, zones };
 }
 
 // جلب المنيو من قاعدة البيانات؛ يُرجع null عند الفشل (فيُستخدم البديل التجريبي)

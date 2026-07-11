@@ -444,7 +444,23 @@ async function delZone(id) { if (!confirm("حذف هذه المنطقة؟")) ret
 async function viewSettings() {
   const m = await call("meta");
   const s = m.ok ? m.settings : {};
+  heroImageUrl = s.hero_image || "";
   content.innerHTML = `
+    <div class="panel"><div class="panel-head"><h2>🖼️ البنر الرئيسي (الصفحة الرئيسية)</h2></div>
+      <div style="padding:16px">
+        <div class="field"><label>عنوان البنر</label><input id="heroTitle" value="${esc(s.hero_title || "")}" placeholder="طعم السعادة في كل لقمة"></div>
+        <div class="field"><label>النص الفرعي</label><textarea id="heroSub" placeholder="حلويات طازجة، مكونات مختارة...">${esc(s.hero_subtitle || "")}</textarea></div>
+        <div class="field"><label>صورة البنر</label>
+          <div id="heroPreview" style="margin-bottom:8px">${s.hero_image ? `<img src="${esc(s.hero_image)}" alt="البنر" style="max-height:140px;border-radius:12px;border:1px solid var(--line)">` : '<span class="muted">لا توجد صورة (سيظهر الرمز الافتراضي)</span>'}</div>
+          <input type="file" id="heroFile" accept="image/*">
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn-ghost btn-sm" onclick="uploadHero()">⬆ رفع الصورة</button>
+            <button class="btn-sm" style="background:#fde8e6;color:var(--red)" onclick="removeHero()">🗑 إزالة الصورة</button>
+          </div>
+        </div>
+        <button class="btn-primary btn-sm" onclick="saveHero()">حفظ البنر</button>
+      </div>
+    </div>
     <div class="panel"><div class="panel-head"><h2>إعدادات المتجر</h2></div>
       <div style="padding:16px">
         <div class="grid2">
@@ -478,6 +494,43 @@ async function saveSettings() {
   };
   const r = await call("settings_save", { settings });
   toast(r.ok ? "تم حفظ الإعدادات" : "خطأ");
+}
+
+/* ------------- البنر الرئيسي ------------- */
+let heroImageUrl = "";
+async function uploadImage(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(API + "upload.php", { method: "POST", headers: { "X-CSRF": CSRF }, body: fd });
+  try { return await res.json(); } catch { return { ok: false, error: "bad_json" }; }
+}
+async function uploadHero() {
+  const file = $("#heroFile").files[0];
+  if (!file) return toast("اختر صورة أولًا");
+  toast("جارٍ الرفع…");
+  const r = await uploadImage(file);
+  if (r.ok) {
+    heroImageUrl = r.url;
+    $("#heroPreview").innerHTML = `<img src="${esc(r.url)}" alt="البنر" style="max-height:140px;border-radius:12px;border:1px solid var(--line)">`;
+    toast("تم رفع الصورة ✓ (اضغط حفظ البنر)");
+  } else {
+    const errs = { too_large: "الصورة كبيرة (الحد 5MB)", bad_type: "نوع الملف غير مدعوم", not_image: "الملف ليس صورة" };
+    toast(errs[r.error] || "فشل الرفع");
+  }
+}
+function removeHero() {
+  heroImageUrl = "";
+  $("#heroPreview").innerHTML = '<span class="muted">لا توجد صورة (سيظهر الرمز الافتراضي)</span>';
+  toast("سيُزال عند الحفظ");
+}
+async function saveHero() {
+  const settings = {
+    hero_title: $("#heroTitle").value.trim(),
+    hero_subtitle: $("#heroSub").value.trim(),
+    hero_image: heroImageUrl,
+  };
+  const r = await call("settings_save", { settings });
+  toast(r.ok ? "تم حفظ البنر ✓" : "خطأ");
 }
 async function changePass() {
   const np = $("#npass").value;

@@ -25,3 +25,6 @@ api/data/
 *.sqlite-wal
 *.sqlite-shm
 qashtoota_data/
+
+# الصور المرفوعة من لوحة التحكم (تُخزّن على الخادم)
+uploads/

@@ -23,6 +23,10 @@ $brand = [
   'instagram' => $settings['instagram'] ?? '',
   'facebook' => $settings['facebook'] ?? '',
   'tiktok' => $settings['tiktok'] ?? '',
+  // بيانات البنر الرئيسي (تُدار من لوحة التحكم)
+  'heroTitle' => $settings['hero_title'] ?? '',
+  'heroSubtitle' => $settings['hero_subtitle'] ?? '',
+  'heroImage' => $settings['hero_image'] ?? '',
 ];
 
 // الفروع
