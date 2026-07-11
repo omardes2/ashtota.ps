@@ -51,8 +51,12 @@ function install_schema(): void {
     category_id INTEGER,
     description TEXT,
     emoji TEXT,
+    image TEXT,
     base_price REAL DEFAULT 0,
     sale_price REAL,
+    has_sizes INTEGER DEFAULT 0,
+    sizes_json TEXT,
+    extras_json TEXT,
     is_featured INTEGER DEFAULT 0,
     is_new INTEGER DEFAULT 0,
     points INTEGER DEFAULT 0,
@@ -175,47 +179,33 @@ function seed_data(): void {
   $cIds = [];
   foreach ($cats as $c) { $cStmt->execute($c); $cIds[] = (int)$p->lastInsertId(); }
 
-  // مجموعات خيارات
-  $groups = [
-    ['اختر الحجم',1,1,1, [['صغير',0],['وسط',5],['كبير',10]]],
-    ['اختر الصوص',0,0,2, [['شوكولاتة',0],['كراميل',0],['لوتس',3]]],
-    ['إضافات اختيارية',0,0,6, [['فستق',5],['أوريو',3],['مكسرات',5],['نوتيلا',6],['آيس كريم',6]]],
-  ];
-  $gStmt = $p->prepare("INSERT INTO option_groups (name,required,min_sel,max_sel,sort) VALUES (?,?,?,?,?)");
-  $oStmt = $p->prepare("INSERT INTO options (group_id,name,price,sort) VALUES (?,?,?,?)");
-  $gIds = [];
-  $i = 0;
-  foreach ($groups as $g) {
-    $gStmt->execute([$g[0],$g[1],$g[2],$g[3],++$i]);
-    $gid = (int)$p->lastInsertId(); $gIds[] = $gid;
-    $j = 0;
-    foreach ($g[4] as $opt) { $oStmt->execute([$gid,$opt[0],$opt[1],++$j]); }
-  }
-  // فهرسة المجموعات: 0=size,1=sauce,2=extras
-  $G_SIZE=$gIds[0]; $G_SAUCE=$gIds[1]; $G_EXTRAS=$gIds[2];
-
-  // منتجات: [name, catIndex, desc, emoji, base, sale, feat, new, points, [groupIndexes], [ [branchIndex, price, inStock] ]]
+  // منتجات — الأحجام والإضافات لكل منتج (JSON) بأسعار مطلقة
+  // [name, catIdx, desc, base, sale, feat, new, points, sizes[[name,price]], extras[[name,price]], availability[[branchIdx,price,inStock]]]
   $products = [
-    ['قشطوطة كلاسيك',0,'قشطة طازجة بلبن مع قطر وفستق حلبي.','🍮',20,null,1,0,20,[0,2],[[0,20,1],[1,22,1],[2,20,1],[3,18,1]]],
-    ['كاسة بلبن',1,'بلبن غني بطبقات القشطة والمكسرات.','🥛',18,15,1,0,18,[0,1,2],[[0,18,1],[1,18,1],[3,16,1]]],
-    ['أم علي بالمكسرات',2,'أم علي ساخنة بالحليب والقشطة والمكسرات المشكلة.','🍲',22,null,0,1,22,[0,2],[[0,22,1],[1,24,1],[2,22,0]]],
-    ['كاسة لوتس',3,'طبقات بسكويت لوتس مع كريمة وصوص لوتس.','🍨',20,null,1,1,20,[0,1,2],[[0,20,1],[1,20,1],[3,19,1]]],
-    ['وافل بلجيكي',4,'وافل مقرمش مع نوتيلا وموز وآيس كريم.','🧇',25,null,0,0,25,[1,2],[[0,25,1],[1,26,1]]],
-    ['بوكس عائلي مشكّل',5,'تشكيلة حلويات لبن تكفي 4-6 أشخاص.','🎁',90,79,1,0,90,[2],[[0,90,1],[1,95,1],[3,85,1]]],
-    ['عصير طازج',6,'عصير فواكه طبيعي طازج حسب المتوفر.','🥤',12,null,0,0,12,[0],[[0,12,1],[1,12,1],[2,12,1],[3,10,1]]],
-    ['كريب نوتيلا',4,'كريب طري محشو بالنوتيلا والفراولة.','🌯',20,null,0,1,20,[1,2],[[0,20,1],[3,18,1]]],
+    ['قشطوطة كلاسيك',0,'قشطة طازجة بلبن مع قطر وفستق حلبي.',20,null,1,0,20, [['صغير',20],['وسط',25],['كبير',30]], [['فستق زيادة',5],['شوكولاتة',4]], [[0,20,1],[1,22,1],[2,20,1],[3,18,1]]],
+    ['كاسة بلبن',1,'بلبن غني بطبقات القشطة والمكسرات.',18,15,1,0,18, [['صغير',18],['وسط',23],['كبير',28]], [['أوريو',3],['لوتس',3]], [[0,18,1],[1,18,1],[3,16,1]]],
+    ['أم علي بالمكسرات',2,'أم علي ساخنة بالحليب والقشطة والمكسرات المشكلة.',22,null,0,1,22, [['وسط',22],['كبير',28]], [['مكسرات زيادة',5]], [[0,22,1],[1,24,1],[2,22,0]]],
+    ['كاسة لوتس',3,'طبقات بسكويت لوتس مع كريمة وصوص لوتس.',20,null,1,1,20, [['صغير',20],['وسط',25],['كبير',30]], [['صوص لوتس',3],['آيس كريم',6]], [[0,20,1],[1,20,1],[3,19,1]]],
+    ['وافل بلجيكي',4,'وافل مقرمش مع نوتيلا وموز وآيس كريم.',25,null,0,0,25, [], [['آيس كريم',6],['فراولة',4]], [[0,25,1],[1,26,1]]],
+    ['بوكس عائلي مشكّل',5,'تشكيلة حلويات لبن تكفي 4-6 أشخاص.',90,79,1,0,90, [], [], [[0,90,1],[1,95,1],[3,85,1]]],
+    ['عصير طازج',6,'عصير فواكه طبيعي طازج حسب المتوفر.',12,null,0,0,12, [['وسط',12],['كبير',16]], [], [[0,12,1],[1,12,1],[2,12,1],[3,10,1]]],
+    ['كريب نوتيلا',4,'كريب طري محشو بالنوتيلا والفراولة.',20,null,0,1,20, [], [['موز',3],['فراولة',4]], [[0,20,1],[3,18,1]]],
   ];
-  $pStmt = $p->prepare("INSERT INTO products (name,category_id,description,emoji,base_price,sale_price,is_featured,is_new,points,sort) VALUES (?,?,?,?,?,?,?,?,?,?)");
+  $pStmt = $p->prepare("INSERT INTO products (name,category_id,description,emoji,image,base_price,sale_price,has_sizes,sizes_json,extras_json,is_featured,is_new,points,sort) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $pbStmt = $p->prepare("INSERT INTO product_branch (product_id,branch_id,price,in_stock) VALUES (?,?,?,?)");
-  $pgStmt = $p->prepare("INSERT INTO product_option_groups (product_id,group_id,sort) VALUES (?,?,?)");
-  $groupMap = [$G_SIZE,$G_SAUCE,$G_EXTRAS];
   $sort = 0;
   foreach ($products as $pr) {
-    $pStmt->execute([$pr[0],$cIds[$pr[1]],$pr[2],$pr[3],$pr[4],$pr[5],$pr[6],$pr[7],$pr[8],++$sort]);
+    $sizes = array_map(fn($s) => ['name' => $s[0], 'price' => (float)$s[1]], $pr[8]);
+    $extras = array_map(fn($e) => ['name' => $e[0], 'price' => (float)$e[1]], $pr[9]);
+    $pStmt->execute([
+      $pr[0], $cIds[$pr[1]], $pr[2], '🍮', null, $pr[3], $pr[4],
+      $sizes ? 1 : 0,
+      $sizes ? json_encode($sizes, JSON_UNESCAPED_UNICODE) : null,
+      $extras ? json_encode($extras, JSON_UNESCAPED_UNICODE) : null,
+      $pr[5], $pr[6], $pr[7], ++$sort,
+    ]);
     $pid = (int)$p->lastInsertId();
-    $gs = 0;
-    foreach ($pr[9] as $gi) { $pgStmt->execute([$pid,$groupMap[$gi],++$gs]); }
-    foreach ($pr[10] as $av) { $pbStmt->execute([$pid,$bIds[$av[0]],$av[1],$av[2]]); }
+    foreach ($pr[10] as $av) { $pbStmt->execute([$pid, $bIds[$av[0]], $av[1], $av[2]]); }
   }
 
   // مناطق التوصيل: [branchIndex, name, fee, minOrder, freeOver]
@@ -226,6 +216,9 @@ function seed_data(): void {
   ];
   $zStmt = $p->prepare("INSERT INTO delivery_zones (branch_id,name,fee,min_order,free_over) VALUES (?,?,?,?,?)");
   foreach ($zones as $z) { $zStmt->execute([$bIds[$z[0]],$z[1],$z[2],$z[3],$z[4]]); }
+
+  // تثبيت أحدث نسخة للمخطط (تثبيت جديد لا يحتاج ترحيلًا)
+  $set->execute(['schema_version', '3']);
 }
 
 /**

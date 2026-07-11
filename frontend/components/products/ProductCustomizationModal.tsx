@@ -36,10 +36,6 @@ export default function ProductCustomizationModal() {
   const unit = computeUnitPrice(base, size, extras);
 
   function toggleExtra(ex: ProductExtra) {
-    if (ex.id === "none") {
-      setExtras([]);
-      return;
-    }
     setExtras((prev) =>
       prev.find((e) => e.id === ex.id) ? prev.filter((e) => e.id !== ex.id) : [...prev, ex]
     );
@@ -52,6 +48,7 @@ export default function ProductCustomizationModal() {
       productId: product!.id,
       name: product!.name,
       emoji: product!.emoji,
+      image: product!.image,
       basePrice: base,
       size,
       extras,
@@ -73,11 +70,11 @@ export default function ProductCustomizationModal() {
         </div>
 
         <div className="p-4">
-          <ProductImage emoji={product.emoji} alt={product.name} className="mb-3 aspect-video w-full rounded-xl2" size="lg" />
+          <ProductImage emoji={product.emoji} src={product.image} alt={product.name} className="mb-3 aspect-video w-full rounded-xl2" size="lg" />
           <p className="mb-4 text-sm text-gray-500">{product.description}</p>
 
           {/* الحجم */}
-          {product.sizes.length > 1 && (
+          {product.sizes.length > 0 && (
             <div className="mb-5">
               <h4 className="mb-2 font-extrabold text-brand-dark">اختر الحجم</h4>
               <div className="grid grid-cols-3 gap-2">
@@ -91,9 +88,7 @@ export default function ProductCustomizationModal() {
                     )}
                   >
                     <div>{s.name}</div>
-                    <div className="text-xs text-gray-400">
-                      {s.priceDelta ? `+ ${formatPrice(s.priceDelta)}` : "أساسي"}
-                    </div>
+                    <div className="text-xs text-gray-400">{formatPrice(s.price)}</div>
                   </button>
                 ))}
               </div>
@@ -106,7 +101,7 @@ export default function ProductCustomizationModal() {
               <h4 className="mb-2 font-extrabold text-brand-dark">الإضافات</h4>
               <div className="space-y-2">
                 {product.extras.map((ex) => {
-                  const selected = ex.id === "none" ? extras.length === 0 : !!extras.find((e) => e.id === ex.id);
+                  const selected = !!extras.find((e) => e.id === ex.id);
                   return (
                     <button
                       key={ex.id}

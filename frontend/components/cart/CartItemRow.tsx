@@ -15,9 +15,14 @@ export default function CartItemRow({ item }: { item: CartItem }) {
 
   return (
     <div className="flex gap-3 rounded-xl2 bg-white p-3 shadow-card">
-      <div className="grid h-16 w-16 flex-shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-light/30 to-brand/15 text-3xl">
-        {item.emoji}
-      </div>
+      {item.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.image} alt={item.name} className="h-16 w-16 flex-shrink-0 rounded-xl object-cover" />
+      ) : (
+        <div className="grid h-16 w-16 flex-shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-light/30 to-brand/15 text-3xl">
+          {item.emoji}
+        </div>
+      )}
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-extrabold text-ink">{item.name}</h3>

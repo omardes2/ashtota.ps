@@ -18,7 +18,9 @@ export default function ProductCard({ product }: { product: Product }) {
   const toggleWish = useWishlistStore((s) => s.toggle);
 
   const available = !hydrated || isProductInBranch(product, branchId) || !branchId;
-  const price = (branchId && product.branchPrices?.[branchId]) || product.price;
+  const price = product.hasSizes
+    ? product.price
+    : (branchId && product.branchPrices?.[branchId]) || product.price;
 
   function open() {
     if (!branchId) return openBranchModal();
@@ -37,7 +39,7 @@ export default function ProductCard({ product }: { product: Product }) {
     <div className="group relative flex flex-col overflow-hidden rounded-xl2 bg-white shadow-card transition hover:shadow-lift">
       <div className="relative">
         <button onClick={open} aria-label={product.name} className="block w-full">
-          <ProductImage emoji={product.emoji} alt={product.name} className="aspect-square w-full" />
+          <ProductImage emoji={product.emoji} src={product.image} alt={product.name} className="aspect-square w-full" />
         </button>
         {badge && <span className={`chip absolute right-2 top-2 ${badge.cls}`}>{badge.label}</span>}
         <button
@@ -56,6 +58,7 @@ export default function ProductCard({ product }: { product: Product }) {
         <p className="line-clamp-2 min-h-[2.4rem] text-xs text-gray-500">{product.description}</p>
         {product.reviewsCount > 0 && <Rating value={product.rating} count={product.reviewsCount} />}
         <div className="mt-1 flex items-center gap-2">
+          {product.hasSizes && <span className="text-xs text-gray-400">من</span>}
           <span className="text-lg font-black text-brand">{formatPrice(price)}</span>
           {product.oldPrice && (
             <span className="text-xs text-gray-400 line-through">{formatPrice(product.oldPrice)}</span>

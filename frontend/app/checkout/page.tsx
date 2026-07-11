@@ -89,7 +89,8 @@ export default function CheckoutPage() {
       items: items.map((i) => ({
         productId: i.productId,
         qty: i.qty,
-        options: [...(i.size ? [{ id: i.size.id }] : []), ...i.extras.map((e) => ({ id: e.id }))],
+        sizeId: i.size?.id ?? null,
+        options: i.extras.map((e) => ({ id: e.id })),
         note: i.note,
       })),
     });

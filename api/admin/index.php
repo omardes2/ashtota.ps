@@ -9,6 +9,7 @@ require_once __DIR__ . '/../helpers.php';
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_out(['ok' => false, 'error' => 'method'], 405);
 if (!db_installed()) json_out(['ok' => false, 'error' => 'not_installed'], 503);
 
+ensure_migrations();
 $in = json_in();
 $action = $in['action'] ?? '';
 $p = db();
@@ -100,14 +101,12 @@ switch ($action) {
   /* ---------------- المنتجات ---------------- */
   case 'products_list': {
     $rows = $p->query("SELECT pr.*, c.name cat_name FROM products pr LEFT JOIN categories c ON c.id=pr.category_id ORDER BY pr.sort, pr.id")->fetchAll();
-    // إرفاق التوفر لكل منتج
     $avStmt = $p->prepare("SELECT branch_id, price, in_stock FROM product_branch WHERE product_id=?");
-    $pgStmt = $p->prepare("SELECT group_id FROM product_option_groups WHERE product_id=?");
     foreach ($rows as &$r) {
       $avStmt->execute([$r['id']]);
       $r['availability'] = $avStmt->fetchAll();
-      $pgStmt->execute([$r['id']]);
-      $r['optionGroups'] = array_map(fn($x) => (int)$x['group_id'], $pgStmt->fetchAll());
+      $r['sizes'] = json_decode($r['sizes_json'] ?? '', true) ?: [];
+      $r['extras'] = json_decode($r['extras_json'] ?? '', true) ?: [];
     }
     json_out(['ok' => true, 'products' => $rows]);
   }
@@ -115,18 +114,36 @@ switch ($action) {
   case 'product_save': {
     $d = $in['product'] ?? [];
     $id = (int)($d['id'] ?? 0);
+
+    // تنظيف الأحجام والإضافات (اسم + سعر)
+    $sizes = [];
+    foreach (($d['sizes'] ?? []) as $s) {
+      $nm = trim((string)($s['name'] ?? ''));
+      if ($nm !== '') $sizes[] = ['name' => $nm, 'price' => (float)($s['price'] ?? 0)];
+    }
+    $extras = [];
+    foreach (($d['extras'] ?? []) as $e) {
+      $nm = trim((string)($e['name'] ?? ''));
+      if ($nm !== '') $extras[] = ['name' => $nm, 'price' => (float)($e['price'] ?? 0)];
+    }
+    $extras = array_slice($extras, 0, 5); // حتى 5 إضافات
+    $hasSizes = (!empty($d['has_sizes']) && count($sizes) > 0) ? 1 : 0;
+
     $fields = [
-      $d['name'] ?? '', (int)($d['category_id'] ?? 0), $d['description'] ?? '', $d['emoji'] ?? '🍮',
+      $d['name'] ?? '', (int)($d['category_id'] ?? 0), $d['description'] ?? '',
+      $d['emoji'] ?? '🍮', trim((string)($d['image'] ?? '')),
       (float)($d['base_price'] ?? 0), ($d['sale_price'] === '' || $d['sale_price'] === null) ? null : (float)$d['sale_price'],
+      $hasSizes, $sizes ? json_encode($sizes, JSON_UNESCAPED_UNICODE) : null,
+      $extras ? json_encode($extras, JSON_UNESCAPED_UNICODE) : null,
       !empty($d['is_featured']) ? 1 : 0, !empty($d['is_new']) ? 1 : 0, (int)($d['points'] ?? 0),
       (int)($d['sort'] ?? 0), !empty($d['active']) ? 1 : 0,
     ];
     if ($id) {
-      $sql = "UPDATE products SET name=?,category_id=?,description=?,emoji=?,base_price=?,sale_price=?,is_featured=?,is_new=?,points=?,sort=?,active=? WHERE id=?";
+      $sql = "UPDATE products SET name=?,category_id=?,description=?,emoji=?,image=?,base_price=?,sale_price=?,has_sizes=?,sizes_json=?,extras_json=?,is_featured=?,is_new=?,points=?,sort=?,active=? WHERE id=?";
       $fields[] = $id;
       $p->prepare($sql)->execute($fields);
     } else {
-      $sql = "INSERT INTO products (name,category_id,description,emoji,base_price,sale_price,is_featured,is_new,points,sort,active) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+      $sql = "INSERT INTO products (name,category_id,description,emoji,image,base_price,sale_price,has_sizes,sizes_json,extras_json,is_featured,is_new,points,sort,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
       $p->prepare($sql)->execute($fields);
       $id = (int)$p->lastInsertId();
     }
@@ -139,20 +156,12 @@ switch ($action) {
         $ins->execute([$id, (int)$av['branch_id'], (float)($av['price'] ?? 0), !empty($av['in_stock']) ? 1 : 0]);
       }
     }
-    // مجموعات الخيارات
-    if (isset($d['optionGroups']) && is_array($d['optionGroups'])) {
-      $p->prepare("DELETE FROM product_option_groups WHERE product_id=?")->execute([$id]);
-      $ins = $p->prepare("INSERT INTO product_option_groups (product_id,group_id,sort) VALUES (?,?,?)");
-      $s = 0;
-      foreach ($d['optionGroups'] as $gid) $ins->execute([$id, (int)$gid, ++$s]);
-    }
     json_out(['ok' => true, 'id' => $id]);
   }
 
   case 'product_delete': {
     $id = (int)($in['id'] ?? 0);
     $p->prepare("DELETE FROM product_branch WHERE product_id=?")->execute([$id]);
-    $p->prepare("DELETE FROM product_option_groups WHERE product_id=?")->execute([$id]);
     $p->prepare("DELETE FROM products WHERE id=?")->execute([$id]);
     json_out(['ok' => true]);
   }

@@ -9,6 +9,7 @@ if (!db_installed()) {
   json_out(['ok' => false, 'error' => 'not_installed', 'hint' => 'شغّل api/install.php أولًا'], 503);
 }
 
+ensure_migrations();
 $p = db();
 
 // الإعدادات
@@ -47,24 +48,9 @@ foreach ($p->query("SELECT * FROM categories WHERE active=1 ORDER BY sort, id") 
   $categories[] = ['id' => (int)$c['id'], 'name' => $c['name'], 'emoji' => $c['emoji'], 'order' => (int)$c['sort']];
 }
 
-// مجموعات الخيارات + خياراتها
-$optionGroups = [];
-foreach ($p->query("SELECT * FROM option_groups ORDER BY sort, id") as $g) {
-  $gid = (int)$g['id'];
-  $opts = [];
-  $st = $p->prepare("SELECT * FROM options WHERE group_id=? ORDER BY sort, id");
-  $st->execute([$gid]);
-  foreach ($st as $o) $opts[] = ['id' => (int)$o['id'], 'name' => $o['name'], 'price' => (float)$o['price']];
-  $optionGroups[(string)$gid] = [
-    'id' => $gid, 'name' => $g['name'], 'required' => (bool)$g['required'],
-    'min' => (int)$g['min_sel'], 'max' => (int)$g['max_sel'], 'options' => $opts,
-  ];
-}
-
-// المنتجات + توفرها + مجموعاتها
+// المنتجات + الأحجام والإضافات لكل منتج
 $products = [];
 $avStmt = $p->prepare("SELECT * FROM product_branch WHERE product_id=?");
-$pgStmt = $p->prepare("SELECT group_id FROM product_option_groups WHERE product_id=? ORDER BY sort, group_id");
 foreach ($p->query("SELECT * FROM products WHERE active=1 ORDER BY sort, id") as $pr) {
   $pid = (int)$pr['id'];
   $avStmt->execute([$pid]);
@@ -72,16 +58,29 @@ foreach ($p->query("SELECT * FROM products WHERE active=1 ORDER BY sort, id") as
   foreach ($avStmt as $a) {
     $availability[] = ['branchId' => (int)$a['branch_id'], 'price' => (float)$a['price'], 'inStock' => (bool)$a['in_stock']];
   }
-  $pgStmt->execute([$pid]);
-  $ogs = [];
-  foreach ($pgStmt as $g) $ogs[] = (int)$g['group_id'];
+
+  // الأحجام (بمعرّفات s0, s1 ...) بأسعار مطلقة
+  $sizes = [];
+  $sizeArr = json_decode($pr['sizes_json'] ?? '', true) ?: [];
+  foreach ($sizeArr as $i => $s) {
+    $sizes[] = ['id' => 's' . $i, 'name' => $s['name'] ?? '', 'price' => (float)($s['price'] ?? 0)];
+  }
+  // الإضافات (بمعرّفات e0, e1 ...)
+  $extras = [];
+  $extraArr = json_decode($pr['extras_json'] ?? '', true) ?: [];
+  foreach ($extraArr as $i => $e) {
+    $extras[] = ['id' => 'e' . $i, 'name' => $e['name'] ?? '', 'price' => (float)($e['price'] ?? 0)];
+  }
+
   $products[] = [
     'id' => $pid, 'name' => $pr['name'], 'categoryId' => (int)$pr['category_id'],
-    'desc' => $pr['description'], 'emoji' => $pr['emoji'],
+    'desc' => $pr['description'], 'emoji' => $pr['emoji'], 'image' => $pr['image'] ?? '',
     'basePrice' => (float)$pr['base_price'],
     'salePrice' => $pr['sale_price'] !== null ? (float)$pr['sale_price'] : null,
+    'hasSizes' => !empty($pr['has_sizes']) && count($sizes) > 0,
+    'sizes' => $sizes, 'extras' => $extras,
     'isFeatured' => (bool)$pr['is_featured'], 'isNew' => (bool)$pr['is_new'],
-    'points' => (int)$pr['points'], 'optionGroups' => $ogs, 'availability' => $availability,
+    'points' => (int)$pr['points'], 'availability' => $availability,
   ];
 }
 
@@ -100,7 +99,6 @@ json_out([
   'brand' => $brand,
   'branches' => $branches,
   'categories' => $categories,
-  'optionGroups' => $optionGroups,
   'products' => $products,
   'deliveryZones' => $zones,
 ]);

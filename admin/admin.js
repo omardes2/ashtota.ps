@@ -207,9 +207,12 @@ async function viewProducts() {
         <thead><tr><th>المنتج</th><th>التصنيف</th><th>السعر</th><th>الفروع</th><th>الحالة</th><th></th></tr></thead>
         <tbody>${r.products.map(p => `
           <tr>
-            <td>${p.emoji || ""} <b>${esc(p.name)}</b></td>
+            <td style="display:flex;align-items:center;gap:8px">
+              ${p.image ? `<img src="${esc(p.image)}" alt="" style="width:34px;height:34px;border-radius:8px;object-fit:cover">` : `<span style="font-size:1.4rem">${p.emoji || "🍮"}</span>`}
+              <b>${esc(p.name)}</b>
+            </td>
             <td>${esc(p.cat_name || "-")}</td>
-            <td>${money(p.base_price)}${p.sale_price ? ` <span class="muted">(${money(p.sale_price)})</span>` : ""}</td>
+            <td>${(+p.has_sizes && p.sizes && p.sizes.length) ? `من ${money(Math.min(...p.sizes.map(s => +s.price)))}` : money(p.base_price)}</td>
             <td>${(p.availability || []).filter(a => +a.in_stock).length}/${(p.availability || []).length}</td>
             <td>${+p.active ? '<span class="dot-open">مفعّل</span>' : '<span class="dot-closed">مخفي</span>'}</td>
             <td><div class="row-actions">
@@ -221,24 +224,83 @@ async function viewProducts() {
 }
 let PRODUCTS_CACHE = [];
 
+let prodImageUrl = "";
+function rowHtml(kind, name, price) {
+  return `<div class="opt-row" style="display:flex;gap:8px;margin-bottom:6px">
+    <input class="${kind}-name" placeholder="الاسم" value="${esc(name || "")}" style="flex:1;padding:8px;border:1.5px solid var(--line);border-radius:8px">
+    <input class="${kind}-price" type="number" step="0.5" placeholder="السعر" value="${price ?? ""}" style="width:90px;padding:8px;border:1.5px solid var(--line);border-radius:8px">
+    <button type="button" class="icon-btn danger" onclick="this.parentElement.remove()">🗑</button>
+  </div>`;
+}
+function addSizeRow(name, price) { $("#sizesBox").insertAdjacentHTML("beforeend", rowHtml("sz", name, price)); }
+function addExtraRow(name, price) {
+  if (document.querySelectorAll("#extrasBox .opt-row").length >= 5) return toast("الحد الأقصى 5 إضافات");
+  $("#extrasBox").insertAdjacentHTML("beforeend", rowHtml("ex", name, price));
+}
+function toggleSizes() {
+  const on = $("#pHasSizes").checked;
+  $("#sizesWrap").classList.toggle("hidden", !on);
+  $("#basePriceWrap").classList.toggle("hidden", on);
+  if (on && document.querySelectorAll("#sizesBox .opt-row").length === 0) addSizeRow("", "");
+}
+async function uploadProductImg() {
+  const file = $("#pFile").files[0];
+  if (!file) return toast("اختر صورة أولًا");
+  toast("جارٍ الرفع…");
+  const r = await uploadImage(file);
+  if (r.ok) { prodImageUrl = r.url; $("#pImgPreview").innerHTML = `<img src="${esc(r.url)}" style="width:80px;height:80px;object-fit:cover;border-radius:10px">`; toast("تم رفع الصورة ✓"); }
+  else toast("فشل الرفع");
+}
+function removeProductImg() { prodImageUrl = ""; $("#pImgPreview").innerHTML = '<span class="muted">لا توجد صورة</span>'; }
+
 function editProduct(id) {
   const p = id ? PRODUCTS_CACHE.find(x => +x.id === id) : null;
   const avByBranch = {};
   (p?.availability || []).forEach(a => avByBranch[a.branch_id] = a);
-  const selGroups = new Set((p?.optionGroups || []).map(Number));
+  prodImageUrl = p?.image || "";
+  const sizes = (p?.sizes || []);
+  const extras = (p?.extras || []);
+  const hasSizes = !!(p && +p.has_sizes && sizes.length);
+
   modal(id ? "تعديل منتج" : "منتج جديد", `
     <div class="grid2">
       <div class="field"><label>الاسم</label><input id="pName" value="${esc(p?.name || "")}"></div>
-      <div class="field"><label>الرمز التعبيري</label><input id="pEmoji" value="${esc(p?.emoji || "🍮")}"></div>
-    </div>
-    <div class="grid2">
       <div class="field"><label>التصنيف</label><select id="pCat">${CATS.map(c => `<option value="${c.id}" ${p && +p.category_id === +c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div>
-      <div class="field"><label>النقاط</label><input id="pPoints" type="number" value="${p?.points ?? 0}"></div>
     </div>
+
+    <div class="field"><label>صورة المنتج</label>
+      <div id="pImgPreview" style="margin-bottom:8px">${p?.image ? `<img src="${esc(p.image)}" style="width:80px;height:80px;object-fit:cover;border-radius:10px">` : '<span class="muted">لا توجد صورة</span>'}</div>
+      <input type="file" id="pFile" accept="image/*">
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="button" class="btn-ghost btn-sm" onclick="uploadProductImg()">⬆ رفع الصورة</button>
+        <button type="button" class="btn-sm" style="background:#fde8e6;color:var(--red)" onclick="removeProductImg()">إزالة</button>
+      </div>
+    </div>
+
     <div class="field"><label>الوصف</label><textarea id="pDesc">${esc(p?.description || "")}</textarea></div>
-    <div class="grid2">
+
+    <label class="check"><input type="checkbox" id="pHasSizes" ${hasSizes ? "checked" : ""} onchange="toggleSizes()"> للمنتج أحجام (كل حجم بسعره)</label>
+
+    <div id="sizesWrap" class="${hasSizes ? "" : "hidden"}">
+      <div class="field"><label>الأحجام</label>
+        <div id="sizesBox">${sizes.map(s => rowHtml("sz", s.name, s.price)).join("")}</div>
+        <button type="button" class="btn-ghost btn-sm" onclick="addSizeRow('','')">＋ أضف حجم</button>
+      </div>
+    </div>
+
+    <div id="basePriceWrap" class="grid2 ${hasSizes ? "hidden" : ""}">
       <div class="field"><label>السعر الأساسي</label><input id="pPrice" type="number" step="0.5" value="${p?.base_price ?? 0}"></div>
       <div class="field"><label>سعر الخصم (اختياري)</label><input id="pSale" type="number" step="0.5" value="${p?.sale_price ?? ""}"></div>
+    </div>
+
+    <div class="field"><label>الإضافات (اختياري — حتى 5، اترك السعر 0 للمجاني)</label>
+      <div id="extrasBox">${extras.map(e => rowHtml("ex", e.name, e.price)).join("")}</div>
+      <button type="button" class="btn-ghost btn-sm" onclick="addExtraRow('','')">＋ أضف إضافة</button>
+    </div>
+
+    <div class="grid2">
+      <div class="field"><label>النقاط</label><input id="pPoints" type="number" value="${p?.points ?? 0}"></div>
+      <div></div>
     </div>
     <div class="grid2">
       <label class="check"><input type="checkbox" id="pFeat" ${p && +p.is_featured ? "checked" : ""}> منتج مميز</label>
@@ -246,17 +308,13 @@ function editProduct(id) {
     </div>
     <label class="check"><input type="checkbox" id="pActive" ${!p || +p.active ? "checked" : ""}> ظاهر للزبائن</label>
 
-    <div class="field"><label>التوفر والأسعار حسب الفرع</label>
+    <div class="field"><label>التوفر حسب الفرع</label>
       ${BRANCHES.map(b => { const a = avByBranch[b.id]; return `
         <div class="av-row">
           <label class="av-name"><input type="checkbox" class="pbEnable" data-b="${b.id}" ${a ? "checked" : ""}> ${esc(b.name)}</label>
-          <input type="number" step="0.5" class="pbPrice" data-b="${b.id}" placeholder="سعر" value="${a?.price ?? p?.base_price ?? ""}">
+          <input type="number" step="0.5" class="pbPrice" data-b="${b.id}" placeholder="سعر" value="${a?.price ?? p?.base_price ?? ""}" title="السعر (للمنتجات بلا أحجام)">
           <label class="check" style="margin:0;padding:6px 10px"><input type="checkbox" class="pbStock" data-b="${b.id}" ${!a || +a.in_stock ? "checked" : ""}> متوفر</label>
         </div>`; }).join("")}
-    </div>
-
-    <div class="field"><label>مجموعات الخيارات</label>
-      ${(META.optionGroups || []).map(g => `<label class="check"><input type="checkbox" class="pOG" value="${g.id}" ${selGroups.has(+g.id) ? "checked" : ""}> ${esc(g.name)}</label>`).join("")}
     </div>
   `, [
     { label: "حفظ", cls: "btn-primary", fn: async () => {
@@ -266,13 +324,22 @@ function editProduct(id) {
         price: $(`.pbPrice[data-b="${b.id}"]`).value || 0,
         in_stock: $(`.pbStock[data-b="${b.id}"]`).checked,
       }));
-      const optionGroups = [...document.querySelectorAll(".pOG:checked")].map(x => +x.value);
+      const hs = $("#pHasSizes").checked;
+      const sizesOut = [...document.querySelectorAll("#sizesBox .opt-row")]
+        .map(r => ({ name: r.querySelector(".sz-name").value.trim(), price: +r.querySelector(".sz-price").value || 0 }))
+        .filter(s => s.name);
+      const extrasOut = [...document.querySelectorAll("#extrasBox .opt-row")]
+        .map(r => ({ name: r.querySelector(".ex-name").value.trim(), price: +r.querySelector(".ex-price").value || 0 }))
+        .filter(e => e.name);
+      if (hs && sizesOut.length === 0) return toast("أضف حجمًا واحدًا على الأقل أو ألغِ خيار الأحجام");
       const product = {
         id: id || 0, name: $("#pName").value.trim(), category_id: +$("#pCat").value,
-        description: $("#pDesc").value.trim(), emoji: $("#pEmoji").value.trim(),
-        base_price: +$("#pPrice").value || 0, sale_price: $("#pSale").value,
+        description: $("#pDesc").value.trim(), emoji: p?.emoji || "🍮", image: prodImageUrl,
+        base_price: hs ? 0 : (+($("#pPrice") ? $("#pPrice").value : 0) || 0),
+        sale_price: $("#pSale") ? $("#pSale").value : "",
+        has_sizes: hs, sizes: sizesOut, extras: extrasOut,
         is_featured: $("#pFeat").checked, is_new: $("#pNew").checked, points: +$("#pPoints").value || 0,
-        active: $("#pActive").checked, sort: p?.sort || 0, availability, optionGroups,
+        active: $("#pActive").checked, sort: p?.sort || 0, availability,
       };
       if (!product.name) return toast("أدخل اسم المنتج");
       const rr = await call("product_save", { product });

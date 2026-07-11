@@ -23,7 +23,7 @@ export interface Category {
 export interface ProductSize {
   id: string;
   name: string; // صغير / وسط / كبير
-  priceDelta: number; // فرق السعر عن السعر الأساسي
+  price: number; // السعر المطلق لهذا الحجم
 }
 
 export interface ProductExtra {
@@ -39,8 +39,9 @@ export interface Product {
   description: string;
   ingredients?: string;
   category: string; // slug التصنيف
-  emoji: string; // بديل الصورة مؤقتًا
+  emoji: string; // بديل عند غياب الصورة
   image?: string;
+  hasSizes?: boolean;
   price: number;
   oldPrice?: number;
   rating: number;
@@ -79,6 +80,7 @@ export interface CartItem {
   productId: string;
   name: string;
   emoji: string;
+  image?: string;
   basePrice: number;
   size?: ProductSize;
   extras: ProductExtra[];

@@ -1,10 +1,10 @@
 import type { Product, ProductExtra, ProductSize } from "@/types";
 
-// أحجام قياسية مشتركة
+// أحجام قياسية مشتركة (بيانات تجريبية احتياطية فقط)
 const SIZES: ProductSize[] = [
-  { id: "s", name: "صغير", priceDelta: 0 },
-  { id: "m", name: "وسط", priceDelta: 5 },
-  { id: "l", name: "كبير", priceDelta: 10 },
+  { id: "s0", name: "صغير", price: 18 },
+  { id: "s1", name: "وسط", price: 23 },
+  { id: "s2", name: "كبير", price: 28 },
 ];
 
 // إضافات قياسية مشتركة
@@ -48,9 +48,9 @@ export const products: Product[] = [
   p({ id: "p11", name: "حلا بارد فراولة", slug: "cold-strawberry", category: "cold", emoji: "🍓", price: 18, rating: 4.7, description: "حلا بارد بالفراولة والبسكويت." }),
   p({ id: "p12", name: "كريب شوكولاتة", slug: "crepe-choco", category: "pastry", emoji: "🌯", price: 20, rating: 4.7, isBestSeller: true, description: "كريب طري محشو بالنوتيلا والموز." }),
   p({ id: "p13", name: "وافل فواكه", slug: "waffle-fruits", category: "pastry", emoji: "🧇", price: 25, rating: 4.8, isFeatured: true, description: "وافل مقرمش مع فواكه طازجة وآيس كريم." }),
-  p({ id: "p14", name: "مشروب شوكولاتة بارد", slug: "cold-choco-drink", category: "drinks", emoji: "🥤", price: 14, rating: 4.5, sizes: [{ id: "m", name: "وسط", priceDelta: 0 }, { id: "l", name: "كبير", priceDelta: 4 }], description: "مشروب شوكولاتة بارد ومنعش." }),
-  p({ id: "p15", name: "عصير فراولة", slug: "strawberry-juice", category: "drinks", emoji: "🧃", price: 12, rating: 4.6, sizes: [{ id: "m", name: "وسط", priceDelta: 0 }, { id: "l", name: "كبير", priceDelta: 4 }], description: "عصير فراولة طبيعي طازج." }),
-  p({ id: "p16", name: "بوكس العائلة", slug: "family-box", category: "offers", emoji: "🎁", price: 79, oldPrice: 95, rating: 4.9, reviewsCount: 88, isFeatured: true, isBestSeller: true, availableBranches: ["khalil", "ramallah", "nablus"], sizes: [{ id: "one", name: "حجم واحد", priceDelta: 0 }], description: "تشكيلة حلويات لبن تكفي 4-6 أشخاص." }),
+  p({ id: "p14", name: "مشروب شوكولاتة بارد", slug: "cold-choco-drink", category: "drinks", emoji: "🥤", price: 14, rating: 4.5, sizes: [{ id: "s0", name: "وسط", price: 14 }, { id: "s1", name: "كبير", price: 18 }], description: "مشروب شوكولاتة بارد ومنعش." }),
+  p({ id: "p15", name: "عصير فراولة", slug: "strawberry-juice", category: "drinks", emoji: "🧃", price: 12, rating: 4.6, sizes: [{ id: "s0", name: "وسط", price: 14 }, { id: "s1", name: "كبير", price: 18 }], description: "عصير فراولة طبيعي طازج." }),
+  p({ id: "p16", name: "بوكس العائلة", slug: "family-box", category: "offers", emoji: "🎁", price: 79, oldPrice: 95, rating: 4.9, reviewsCount: 88, isFeatured: true, isBestSeller: true, availableBranches: ["khalil", "ramallah", "nablus"], sizes: [], description: "تشكيلة حلويات لبن تكفي 4-6 أشخاص." }),
 ];
 
 export function getProduct(slug: string): Product | undefined {

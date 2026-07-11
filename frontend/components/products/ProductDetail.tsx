@@ -24,11 +24,11 @@ export default function ProductDetail({ product }: { product: Product }) {
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
 
-  const unit = computeUnitPrice(product.price, size, extras);
+  const base = (branchId && product.branchPrices?.[branchId]) || product.price;
+  const unit = computeUnitPrice(base, size, extras);
   const inBranch = !hydrated || !branchId || isProductInBranch(product, branchId);
 
   function toggleExtra(ex: ProductExtra) {
-    if (ex.id === "none") return setExtras([]);
     setExtras((p) => (p.find((e) => e.id === ex.id) ? p.filter((e) => e.id !== ex.id) : [...p, ex]));
   }
 
@@ -39,7 +39,8 @@ export default function ProductDetail({ product }: { product: Product }) {
       productId: product.id,
       name: product.name,
       emoji: product.emoji,
-      basePrice: product.price,
+      image: product.image,
+      basePrice: base,
       size,
       extras,
       note: note.trim() || undefined,
@@ -60,14 +61,7 @@ export default function ProductDetail({ product }: { product: Product }) {
       <div className="grid gap-6 md:grid-cols-2">
         {/* الصور */}
         <div>
-          <ProductImage emoji={product.emoji} alt={product.name} className="aspect-square w-full rounded-xl3" size="lg" />
-          <div className="mt-3 flex gap-2">
-            {[product.emoji, "🥛", "✨"].map((e, i) => (
-              <div key={i} className="grid h-16 w-16 place-items-center rounded-xl2 bg-gradient-to-br from-brand-light/20 to-brand/10 text-2xl">
-                {e}
-              </div>
-            ))}
-          </div>
+          <ProductImage emoji={product.emoji} src={product.image} alt={product.name} className="aspect-square w-full rounded-xl3" size="lg" />
         </div>
 
         {/* التفاصيل */}
@@ -84,7 +78,8 @@ export default function ProductDetail({ product }: { product: Product }) {
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-2xl font-black text-brand">{formatPrice(product.price)}</span>
+            {product.hasSizes && <span className="text-sm text-gray-400">يبدأ من</span>}
+            <span className="text-2xl font-black text-brand">{formatPrice(unit)}</span>
             {product.oldPrice && <span className="text-gray-400 line-through">{formatPrice(product.oldPrice)}</span>}
           </div>
 
@@ -95,14 +90,14 @@ export default function ProductDetail({ product }: { product: Product }) {
           </div>
 
           {/* الحجم */}
-          {product.sizes.length > 1 && (
+          {product.sizes.length > 0 && (
             <div className="mt-5">
               <h4 className="mb-2 font-extrabold text-brand-dark">اختر الحجم</h4>
               <div className="grid grid-cols-3 gap-2">
                 {product.sizes.map((s) => (
                   <button key={s.id} onClick={() => setSize(s)} className={cn("rounded-xl2 border-2 p-3 text-center font-bold", size?.id === s.id ? "border-brand bg-brand/5" : "border-cloud")}>
                     <div>{s.name}</div>
-                    <div className="text-xs text-gray-400">{s.priceDelta ? `+ ${formatPrice(s.priceDelta)}` : "أساسي"}</div>
+                    <div className="text-xs text-gray-400">{formatPrice(s.price)}</div>
                   </button>
                 ))}
               </div>
@@ -115,7 +110,7 @@ export default function ProductDetail({ product }: { product: Product }) {
               <h4 className="mb-2 font-extrabold text-brand-dark">الإضافات</h4>
               <div className="grid gap-2 sm:grid-cols-2">
                 {product.extras.map((ex) => {
-                  const selected = ex.id === "none" ? extras.length === 0 : !!extras.find((e) => e.id === ex.id);
+                  const selected = !!extras.find((e) => e.id === ex.id);
                   return (
                     <button key={ex.id} onClick={() => toggleExtra(ex)} className={cn("flex items-center gap-2 rounded-xl2 border-2 p-3 text-right", selected ? "border-brand bg-brand/5" : "border-cloud")}>
                       <span className={cn("grid h-5 w-5 place-items-center rounded-md border-2 text-xs text-white", selected ? "border-brand bg-brand" : "border-gray-300")}>{selected ? "✓" : ""}</span>

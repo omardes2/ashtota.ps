@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_out(['ok' => false, 'error' => '
 if (!db_installed()) json_out(['ok' => false, 'error' => 'not_installed'], 503);
 
 $in = json_in();
+ensure_migrations();
 $p = db();
 
 $branchId = (int)($in['branchId'] ?? 0);
@@ -32,10 +33,9 @@ if (!$branch) json_out(['ok' => false, 'error' => 'invalid_branch'], 400);
 if ($name === '' || $phone === '') json_out(['ok' => false, 'error' => 'missing_contact'], 400);
 if (!is_array($items) || count($items) === 0) json_out(['ok' => false, 'error' => 'empty_cart'], 400);
 
-// خرائط الأسعار من قاعدة البيانات
+// الأسعار تُحسب من قاعدة البيانات (لا نثق بأسعار المتصفح)
 $priceStmt = $p->prepare("SELECT price, in_stock FROM product_branch WHERE product_id=? AND branch_id=?");
 $prodStmt = $p->prepare("SELECT * FROM products WHERE id=?");
-$optStmt = $p->prepare("SELECT name, price FROM options WHERE id=?");
 
 $subtotal = 0;
 $lineRows = [];
@@ -50,20 +50,37 @@ foreach ($items as $it) {
   $pb = $priceStmt->fetch();
   if (!$pb || !(int)$pb['in_stock']) json_out(['ok' => false, 'error' => 'unavailable', 'pid' => $pid], 400);
 
-  $unit = (float)$pb['price'];
-  $optNames = [];
-  foreach (($it['options'] ?? []) as $opt) {
-    $oid = (int)($opt['id'] ?? 0);
-    $optStmt->execute([$oid]);
-    $o = $optStmt->fetch();
-    if ($o) { $unit += (float)$o['price']; $optNames[] = $o['name']; }
+  $sizes = json_decode($prod['sizes_json'] ?? '', true) ?: [];
+  $extrasDef = json_decode($prod['extras_json'] ?? '', true) ?: [];
+  $parts = [];
+
+  // السعر الأساسي: من الحجم المختار إن وُجدت أحجام، وإلا سعر الفرع
+  if (!empty($prod['has_sizes']) && count($sizes) > 0) {
+    $sizeId = (string)($it['sizeId'] ?? '');
+    $si = (strlen($sizeId) > 1 && $sizeId[0] === 's') ? (int)substr($sizeId, 1) : -1;
+    if (!isset($sizes[$si])) json_out(['ok' => false, 'error' => 'missing_size', 'pid' => $pid], 400);
+    $unit = (float)($sizes[$si]['price'] ?? 0);
+    $parts[] = $sizes[$si]['name'] ?? '';
+  } else {
+    $unit = (float)$pb['price'];
   }
+
+  // الإضافات المختارة (من extras_json)
+  foreach (($it['options'] ?? []) as $opt) {
+    $eid = (string)($opt['id'] ?? '');
+    $ei = (strlen($eid) > 1 && $eid[0] === 'e') ? (int)substr($eid, 1) : -1;
+    if (isset($extrasDef[$ei])) {
+      $unit += (float)($extrasDef[$ei]['price'] ?? 0);
+      $parts[] = $extrasDef[$ei]['name'] ?? '';
+    }
+  }
+
   $lineTotal = $unit * $qty;
   $subtotal += $lineTotal;
   $lineRows[] = [
     'product_id' => $pid, 'name' => $prod['name'], 'qty' => $qty,
     'unit_price' => $unit, 'line_total' => $lineTotal,
-    'options_text' => implode('، ', $optNames), 'note' => trim($it['note'] ?? ''),
+    'options_text' => implode('، ', array_filter($parts)), 'note' => trim($it['note'] ?? ''),
   ];
 }
 

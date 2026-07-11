@@ -65,6 +65,80 @@ function db_installed(): bool {
 /** الوقت الحالي كنص */
 function now_str(): string { return date('Y-m-d H:i:s'); }
 
+/**
+ * ترحيل تلقائي لقاعدة البيانات (يعمل مرة واحدة عند الحاجة).
+ * v3: إضافة أعمدة الصورة والأحجام والإضافات، وتحويل الأحجام/الإضافات
+ * القديمة (من مجموعات الخيارات) إلى JSON لكل منتج.
+ */
+function ensure_migrations(): void {
+  static $done = false;
+  if ($done) return;
+  $done = true;
+
+  $p = db();
+  try {
+    $row = $p->query("SELECT sval FROM settings WHERE skey='schema_version'")->fetch();
+  } catch (Throwable $e) {
+    return; // النظام غير مثبّت بعد
+  }
+  $ver = (int)($row['sval'] ?? 0);
+  if ($ver >= 3) return;
+
+  foreach ([
+    "ALTER TABLE products ADD COLUMN image TEXT",
+    "ALTER TABLE products ADD COLUMN has_sizes INTEGER DEFAULT 0",
+    "ALTER TABLE products ADD COLUMN sizes_json TEXT",
+    "ALTER TABLE products ADD COLUMN extras_json TEXT",
+  ] as $sql) {
+    try { $p->exec($sql); } catch (Throwable $e) { /* العمود موجود */ }
+  }
+
+  try { migrate_options_to_json($p); } catch (Throwable $e) { /* تجاهل */ }
+
+  $up = $p->prepare(DB_DRIVER === 'mysql'
+    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','3')"
+    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','3')");
+  $up->execute();
+}
+
+/** تحويل الأحجام/الإضافات من مجموعات الخيارات إلى JSON لكل منتج */
+function migrate_options_to_json(PDO $p): void {
+  $products = $p->query("SELECT id, base_price FROM products")->fetchAll();
+  $grpStmt = $p->prepare(
+    "SELECT g.id, g.required, g.max_sel FROM product_option_groups pog
+     JOIN option_groups g ON g.id = pog.group_id WHERE pog.product_id = ? ORDER BY pog.sort, g.id"
+  );
+  $optStmt = $p->prepare("SELECT name, price FROM options WHERE group_id = ? ORDER BY sort, id");
+  $upd = $p->prepare("UPDATE products SET has_sizes=?, sizes_json=?, extras_json=? WHERE id=?");
+
+  foreach ($products as $pr) {
+    $pid = (int)$pr['id'];
+    $base = (float)$pr['base_price'];
+    $grpStmt->execute([$pid]);
+    $groups = $grpStmt->fetchAll();
+    if (!$groups) continue;
+    $sizes = [];
+    $extras = [];
+    foreach ($groups as $g) {
+      $optStmt->execute([(int)$g['id']]);
+      $isSize = ((int)$g['required'] === 1 && (int)$g['max_sel'] === 1);
+      foreach ($optStmt->fetchAll() as $o) {
+        if ($isSize) {
+          $sizes[] = ['name' => $o['name'], 'price' => $base + (float)$o['price']];
+        } elseif (trim((string)$o['name']) !== 'بدون إضافة') {
+          $extras[] = ['name' => $o['name'], 'price' => (float)$o['price']];
+        }
+      }
+    }
+    $upd->execute([
+      $sizes ? 1 : 0,
+      $sizes ? json_encode($sizes, JSON_UNESCAPED_UNICODE) : null,
+      $extras ? json_encode($extras, JSON_UNESCAPED_UNICODE) : null,
+      $pid,
+    ]);
+  }
+}
+
 /** نوع عمود المفتاح الأساسي حسب المحرك */
 function pk_type(): string {
   return DB_DRIVER === 'mysql'

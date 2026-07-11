@@ -5,15 +5,15 @@ export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
-// حساب سعر الوحدة بناءً على الحجم والإضافات
+// حساب سعر الوحدة: الحجم يحدد السعر الأساسي (مطلق) إن وُجد، وإلا سعر الفرع
 export function computeUnitPrice(
-  base: number,
+  baseNoSize: number,
   size?: ProductSize,
   extras: ProductExtra[] = []
 ): number {
-  const sizeDelta = size?.priceDelta ?? 0;
+  const base = size ? size.price : baseNoSize;
   const extrasTotal = extras.reduce((s, e) => s + e.price, 0);
-  return base + sizeDelta + extrasTotal;
+  return base + extrasTotal;
 }
 
 // إنشاء مفتاح فريد لعنصر السلة

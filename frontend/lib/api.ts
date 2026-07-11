@@ -11,10 +11,10 @@ import type {
 const API_BASE = "/api";
 
 /* ------------ أشكال استجابة menu.php ------------ */
-interface ApiOption { id: number; name: string; price: number }
-interface ApiGroup { id: number; name: string; required: boolean; min: number; max: number; options: ApiOption[] }
 interface ApiBranch { id: number; name: string; city: string; area: string; phone: string; whatsapp: string; address: string; isOpen: boolean; hours: string; allowDelivery: boolean; allowPickup: boolean; minOrder: number; prepTime: number }
-interface ApiProduct { id: number; name: string; categoryId: number; desc: string; emoji: string; basePrice: number; salePrice: number | null; isFeatured: boolean; isNew: boolean; points: number; optionGroups: number[]; availability: { branchId: number; price: number; inStock: boolean }[] }
+interface ApiSize { id: string; name: string; price: number }
+interface ApiExtra { id: string; name: string; price: number }
+interface ApiProduct { id: number; name: string; categoryId: number; desc: string; emoji: string; image: string; basePrice: number; salePrice: number | null; hasSizes: boolean; sizes: ApiSize[]; extras: ApiExtra[]; isFeatured: boolean; isNew: boolean; points: number; availability: { branchId: number; price: number; inStock: boolean }[] }
 interface ApiZone { id: number; branchId: number; name: string; fee: number; minOrder: number; freeOver: number | null }
 interface ApiBrand {
   name: string; tagline: string; whatsapp: string; instagram: string; facebook: string; tiktok: string;
@@ -25,7 +25,6 @@ interface ApiMenu {
   brand?: ApiBrand;
   branches: ApiBranch[];
   categories: { id: number; name: string; emoji: string; order: number }[];
-  optionGroups: Record<string, ApiGroup>;
   products: ApiProduct[];
   deliveryZones: ApiZone[];
 }
@@ -75,24 +74,22 @@ function mapMenu(api: ApiMenu): MappedMenu {
   }));
 
   const products: Product[] = (api.products || []).map((p) => {
-    const groups = (p.optionGroups || []).map((gid) => api.optionGroups[String(gid)]).filter(Boolean);
-    // مجموعة الحجم: إجبارية واختيار واحد
-    const sizeGroup = groups.find((g) => g.required && g.max === 1);
-    const sizes: ProductSize[] = sizeGroup
-      ? sizeGroup.options.map((o) => ({ id: S(o.id), name: o.name, priceDelta: o.price }))
-      : [];
-    const extras: ProductExtra[] = groups
-      .filter((g) => g !== sizeGroup)
-      .flatMap((g) => g.options.map((o) => ({ id: S(o.id), name: o.name, price: o.price })));
+    const sizes: ProductSize[] = (p.sizes || []).map((s) => ({ id: s.id, name: s.name, price: s.price }));
+    const extras: ProductExtra[] = (p.extras || []).map((e) => ({ id: e.id, name: e.name, price: e.price }));
 
     const branchPrices: Record<string, number> = {};
     (p.availability || []).forEach((a) => { branchPrices[S(a.branchId)] = a.price; });
     const availableBranches = (p.availability || []).filter((a) => a.inStock).map((a) => S(a.branchId));
 
+    // سعر العرض في البطاقة: أقل حجم إن وُجدت أحجام، وإلا السعر الأساسي
+    const displayPrice = p.hasSizes && sizes.length ? Math.min(...sizes.map((s) => s.price)) : (p.salePrice ?? p.basePrice);
+
     return {
       id: S(p.id), name: p.name, slug: S(p.id),
-      description: p.desc || "", category: S(p.categoryId), emoji: p.emoji || "🍮",
-      price: p.salePrice ?? p.basePrice, oldPrice: p.salePrice ? p.basePrice : undefined,
+      description: p.desc || "", category: S(p.categoryId),
+      emoji: p.emoji || "🍮", image: p.image || undefined, hasSizes: !!p.hasSizes,
+      price: displayPrice,
+      oldPrice: !p.hasSizes && p.salePrice ? p.basePrice : undefined,
       rating: 4.7, reviewsCount: 0, preparationTime: "—",
       availableBranches, sizes, extras,
       isFeatured: p.isFeatured, isNew: p.isNew, isBestSeller: p.isFeatured,
@@ -139,7 +136,7 @@ export interface SubmitOrderInput {
   zoneId?: string | null;
   address?: string;
   note?: string;
-  items: { productId: string; qty: number; options: { id: string }[]; note?: string }[];
+  items: { productId: string; qty: number; sizeId?: string | null; options: { id: string }[]; note?: string }[];
 }
 
 export interface SubmitOrderResult {
@@ -167,7 +164,8 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
         items: input.items.map((it) => ({
           productId: Number(it.productId),
           qty: it.qty,
-          options: it.options.map((o) => ({ id: Number(o.id) })),
+          sizeId: it.sizeId || null,
+          options: it.options.map((o) => ({ id: o.id })), // "e0" strings
           note: it.note || "",
         })),
       }),
