@@ -1,5 +1,5 @@
 /* Service Worker - قشطوطة بلبن (تخزين مؤقت بسيط للعمل دون اتصال) */
-const CACHE = "qashtoota-v1";
+const CACHE = "qashtoota-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,17 +27,24 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
-  e.respondWith(
-    caches.match(req).then((cached) =>
-      cached ||
+
+  const sameOrigin = req.url.startsWith(self.location.origin);
+  // لا نعترض طلبات الـ API إطلاقًا (بيانات حيّة)
+  if (sameOrigin && req.url.includes("/api/")) return;
+
+  if (sameOrigin) {
+    // ملفات التطبيق: الشبكة أولًا (لإظهار آخر تحديث)، ثم الكاش عند عدم الاتصال
+    e.respondWith(
       fetch(req).then((res) => {
-        // خزّن نسخة من الطلبات المحلية فقط
-        if (res.ok && req.url.startsWith(self.location.origin)) {
+        if (res.ok) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy));
         }
         return res;
-      }).catch(() => cached)
-    )
-  );
+      }).catch(() => caches.match(req))
+    );
+  } else {
+    // موارد خارجية (خطوط): الكاش أولًا
+    e.respondWith(caches.match(req).then((cached) => cached || fetch(req)));
+  }
 });
