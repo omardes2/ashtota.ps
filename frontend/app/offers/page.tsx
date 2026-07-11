@@ -1,15 +1,19 @@
+"use client";
 import Link from "next/link";
 import { offers } from "@/data/offers";
 import SectionHeader from "@/components/shared/SectionHeader";
-
-export const metadata = { title: "العروض | قشطوطة بلبن" };
+import { useMenuStore } from "@/store/useMenuStore";
 
 export default function OffersPage() {
+  const site = useMenuStore((s) => s.site);
+
   return (
     <div className="container-p py-6">
       <div className="mb-6 overflow-hidden rounded-xl3 bg-gradient-to-l from-brand-dark to-brand p-8 text-center text-white">
-        <h1 className="text-3xl font-black">عروض خاصة بطعم أحلى 🎉</h1>
-        <p className="mt-2 text-white/85">خصومات وهدايا بانتظارك — استفد منها الآن</p>
+        <h1 className="text-3xl font-black">{site.offersTitle || "عروض خاصة بطعم أحلى 🎉"}</h1>
+        <p className="mt-2 whitespace-pre-line text-white/85">
+          {site.offersContent || "خصومات وهدايا بانتظارك — استفد منها الآن"}
+        </p>
       </div>
 
       <SectionHeader title="جميع العروض" />

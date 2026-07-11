@@ -1,18 +1,22 @@
+"use client";
 import FeaturesSection from "@/components/home/FeaturesSection";
-
-export const metadata = { title: "من نحن | قشطوطة بلبن" };
+import { useMenuStore } from "@/store/useMenuStore";
 
 export default function AboutPage() {
+  const site = useMenuStore((s) => s.site);
+  const brand = useMenuStore((s) => s.brand);
+
+  const title = site.aboutTitle || brand.name || "قشطوطة بلبن";
+  const content =
+    site.aboutContent ||
+    "قشطوطة بلبن علامة فلسطينية متخصّصة في الحلويات الطازجة بلبن. نحضّر منتجاتنا يوميًا من مكونات مختارة بعناية، لنقدّم لك طعم السعادة في كل لقمة. نخدمكم عبر فروعنا في الخليل ورام الله ونابلس وبيت لحم، مع خدمة توصيل سريعة وطلب أونلاين سهل.";
+
   return (
     <div className="container-p py-8">
       <div className="mx-auto max-w-2xl text-center">
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-brand-light to-brand text-4xl text-white shadow-soft">🍮</div>
-        <h1 className="mt-4 text-3xl font-black text-ink">قشطوطة بلبن</h1>
-        <p className="mt-3 leading-relaxed text-gray-600">
-          قشطوطة بلبن علامة فلسطينية متخصّصة في الحلويات الطازجة بلبن. نحضّر منتجاتنا
-          يوميًا من مكونات مختارة بعناية، لنقدّم لك طعم السعادة في كل لقمة. نخدمكم عبر
-          فروعنا في الخليل ورام الله ونابلس وبيت لحم، مع خدمة توصيل سريعة وطلب أونلاين سهل.
-        </p>
+        <h1 className="mt-4 text-3xl font-black text-ink">{title}</h1>
+        <p className="mt-3 whitespace-pre-line leading-relaxed text-gray-600">{content}</p>
       </div>
 
       <div className="mt-8">

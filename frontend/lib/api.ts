@@ -20,9 +20,17 @@ interface ApiBrand {
   name: string; tagline: string; whatsapp: string; instagram: string; facebook: string; tiktok: string;
   heroTitle: string; heroSubtitle: string; heroImage: string;
 }
+interface ApiSite {
+  logo: string;
+  aboutTitle: string; aboutContent: string;
+  contactTitle: string; contactContent: string;
+  offersTitle: string; offersContent: string;
+  footerAbout: string; footerCopyright: string;
+}
 interface ApiMenu {
   ok: boolean;
   brand?: ApiBrand;
+  site?: ApiSite;
   branches: ApiBranch[];
   categories: { id: number; name: string; emoji: string; image: string; order: number }[];
   products: ApiProduct[];
@@ -41,8 +49,21 @@ export interface BrandInfo {
   heroImage: string;
 }
 
+export interface SiteContent {
+  logo: string;
+  aboutTitle: string;
+  aboutContent: string;
+  contactTitle: string;
+  contactContent: string;
+  offersTitle: string;
+  offersContent: string;
+  footerAbout: string;
+  footerCopyright: string;
+}
+
 export interface MappedMenu {
   brand: BrandInfo;
+  site: SiteContent;
   branches: Branch[];
   categories: Category[];
   products: Product[];
@@ -111,7 +132,20 @@ function mapMenu(api: ApiMenu): MappedMenu {
     heroImage: b?.heroImage || "",
   };
 
-  return { brand, branches, categories, products, zones };
+  const st = api.site;
+  const site: SiteContent = {
+    logo: st?.logo || "",
+    aboutTitle: st?.aboutTitle || "",
+    aboutContent: st?.aboutContent || "",
+    contactTitle: st?.contactTitle || "",
+    contactContent: st?.contactContent || "",
+    offersTitle: st?.offersTitle || "",
+    offersContent: st?.offersContent || "",
+    footerAbout: st?.footerAbout || "",
+    footerCopyright: st?.footerCopyright || "",
+  };
+
+  return { brand, site, branches, categories, products, zones };
 }
 
 // جلب المنيو من قاعدة البيانات؛ يُرجع null عند الفشل (فيُستخدم البديل التجريبي)

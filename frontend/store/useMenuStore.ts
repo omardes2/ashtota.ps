@@ -4,7 +4,7 @@ import type { Branch, Category, DeliveryZone, Product } from "@/types";
 import { branches as mockBranches } from "@/data/branches";
 import { categories as mockCategories } from "@/data/categories";
 import { products as mockProducts } from "@/data/products";
-import { fetchMenu, type BrandInfo } from "@/lib/api";
+import { fetchMenu, type BrandInfo, type SiteContent } from "@/lib/api";
 
 const DEFAULT_BRAND: BrandInfo = {
   name: "قشطوطة بلبن",
@@ -18,8 +18,21 @@ const DEFAULT_BRAND: BrandInfo = {
   heroImage: "",
 };
 
+const DEFAULT_SITE: SiteContent = {
+  logo: "",
+  aboutTitle: "",
+  aboutContent: "",
+  contactTitle: "",
+  contactContent: "",
+  offersTitle: "",
+  offersContent: "",
+  footerAbout: "",
+  footerCopyright: "",
+};
+
 interface MenuState {
   brand: BrandInfo;
+  site: SiteContent;
   branches: Branch[];
   categories: Category[];
   products: Product[];
@@ -34,6 +47,7 @@ interface MenuState {
 
 export const useMenuStore = create<MenuState>((set, get) => ({
   brand: DEFAULT_BRAND,
+  site: DEFAULT_SITE,
   branches: mockBranches,
   categories: mockCategories,
   products: mockProducts,
@@ -45,6 +59,7 @@ export const useMenuStore = create<MenuState>((set, get) => ({
     if (menu && menu.products.length) {
       set({
         brand: menu.brand,
+        site: menu.site,
         branches: menu.branches,
         categories: menu.categories,
         products: menu.products,

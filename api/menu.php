@@ -30,6 +30,19 @@ $brand = [
   'heroImage' => $settings['hero_image'] ?? '',
 ];
 
+// محتوى الموقع القابل للتعديل من لوحة التحكم (الشعار، الصفحات، الفوتر)
+$site = [
+  'logo' => $settings['logo_image'] ?? '',
+  'aboutTitle' => $settings['about_title'] ?? '',
+  'aboutContent' => $settings['about_content'] ?? '',
+  'contactTitle' => $settings['contact_title'] ?? '',
+  'contactContent' => $settings['contact_content'] ?? '',
+  'offersTitle' => $settings['offers_title'] ?? '',
+  'offersContent' => $settings['offers_content'] ?? '',
+  'footerAbout' => $settings['footer_about'] ?? '',
+  'footerCopyright' => $settings['footer_copyright'] ?? '',
+];
+
 // الفروع
 $branches = [];
 foreach ($p->query("SELECT * FROM branches WHERE active=1 ORDER BY sort, id") as $b) {
@@ -97,6 +110,7 @@ foreach ($p->query("SELECT * FROM delivery_zones WHERE active=1 ORDER BY id") as
 json_out([
   'ok' => true,
   'brand' => $brand,
+  'site' => $site,
   'branches' => $branches,
   'categories' => $categories,
   'products' => $products,

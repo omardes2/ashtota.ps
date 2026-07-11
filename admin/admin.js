@@ -151,7 +151,8 @@ function buildNav() {
   const items = [["dashboard", "📊 لوحة القيادة"], ["orders", "🧾 الطلبات"], ["requests", "📝 الطلبات اليومية"]];
   if (isSuper) items.push(
     ["products", "🍮 المنتجات"], ["branches", "🏬 الفروع"], ["categories", "🗂 التصنيفات"],
-    ["zones", "🛵 مناطق التوصيل"], ["users", "👥 المستخدمون"], ["reports", "📈 التقارير"], ["settings", "⚙️ الإعدادات"]
+    ["zones", "🛵 مناطق التوصيل"], ["users", "👥 المستخدمون"], ["reports", "📈 التقارير"],
+    ["content", "🎨 محتوى الموقع"], ["settings", "⚙️ الإعدادات"]
   );
   $("#nav").innerHTML = items.map((it, i) => `<button data-view="${it[0]}" ${i === 0 ? 'class="active"' : ""}>${it[1]}</button>`).join("");
 }
@@ -166,11 +167,11 @@ $("#nav").addEventListener("click", (e) => {
 });
 $("#menuToggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 
-const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", requests: "الطلبات اليومية", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", users: "المستخدمون", reports: "التقارير", settings: "الإعدادات" };
+const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", requests: "الطلبات اليومية", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", users: "المستخدمون", reports: "التقارير", content: "محتوى الموقع", settings: "الإعدادات" };
 function navTo(view) {
   $("#viewTitle").textContent = TITLES[view] || "";
   content.innerHTML = `<div class="empty">جارِ التحميل…</div>`;
-  ({ dashboard: viewDashboard, orders: viewOrders, requests: viewRequests, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, users: viewUsers, reports: viewReports, settings: viewSettings }[view] || (() => {}))();
+  ({ dashboard: viewDashboard, orders: viewOrders, requests: viewRequests, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, users: viewUsers, reports: viewReports, content: viewSiteContent, settings: viewSettings }[view] || (() => {}))();
 }
 
 /* ------------- لوحة القيادة ------------- */
@@ -662,6 +663,71 @@ function editZone(id) {
 async function delZone(id) { if (!confirm("حذف هذه المنطقة؟")) return; const r = await call("zone_delete", { id }); if (r.ok) { toast("تم الحذف"); viewZones(); } }
 
 /* ------------- الإعدادات ------------- */
+/* ------------- محتوى الموقع (شعار + صفحات + فوتر) ------------- */
+let logoImageUrl = "";
+async function viewSiteContent() {
+  const m = await call("meta");
+  const s = m.ok ? m.settings : {};
+  logoImageUrl = s.logo_image || "";
+  content.innerHTML = `
+    <div class="panel"><div class="panel-head"><h2>🖼️ شعار الموقع</h2></div>
+      <div style="padding:16px">
+        <div id="logoPreview" style="margin-bottom:8px">${s.logo_image ? `<img src="${esc(s.logo_image)}" style="max-height:80px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:6px">` : '<span class="muted">لا يوجد شعار (سيظهر الاسم النصي)</span>'}</div>
+        <input type="file" id="logoFile" accept="image/*">
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn-ghost btn-sm" onclick="uploadLogo()">⬆ رفع الشعار</button>
+          <button class="btn-sm" style="background:#fde8e6;color:var(--red)" onclick="removeLogo()">🗑 إزالة</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>📄 صفحة «من نحن»</h2></div>
+      <div style="padding:16px">
+        <div class="field"><label>العنوان</label><input id="aboutTitle" value="${esc(s.about_title || "")}" placeholder="من نحن"></div>
+        <div class="field"><label>المحتوى</label><textarea id="aboutContent" rows="5" placeholder="اكتب نبذة عن المتجر…">${esc(s.about_content || "")}</textarea></div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>📞 صفحة «تواصل معنا»</h2></div>
+      <div style="padding:16px">
+        <div class="field"><label>العنوان</label><input id="contactTitle" value="${esc(s.contact_title || "")}" placeholder="تواصل معنا"></div>
+        <div class="field"><label>المحتوى</label><textarea id="contactContent" rows="4" placeholder="نص تعريفي أعلى الصفحة…">${esc(s.contact_content || "")}</textarea></div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>🎁 صفحة «العروض»</h2></div>
+      <div style="padding:16px">
+        <div class="field"><label>العنوان</label><input id="offersTitle" value="${esc(s.offers_title || "")}" placeholder="عروض قشطوطة"></div>
+        <div class="field"><label>المحتوى</label><textarea id="offersContent" rows="3">${esc(s.offers_content || "")}</textarea></div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>🦶 الفوتر (الصفحة الرئيسية)</h2></div>
+      <div style="padding:16px">
+        <div class="field"><label>نبذة الفوتر</label><textarea id="footerAbout" rows="3">${esc(s.footer_about || "")}</textarea></div>
+        <div class="field"><label>حقوق النشر</label><input id="footerCopyright" value="${esc(s.footer_copyright || "")}" placeholder="© 2026 قشطوطة بلبن — جميع الحقوق محفوظة"></div>
+        <p class="muted" style="font-size:.82rem">روابط التواصل (واتساب/انستغرام/فيسبوك/تيك توك) تُدار من صفحة الإعدادات.</p>
+      </div>
+    </div>
+    <button class="btn-primary" style="margin:4px 2px" onclick="saveSiteContent()">💾 حفظ محتوى الموقع</button>`;
+}
+async function uploadLogo() {
+  const f = $("#logoFile").files[0];
+  if (!f) return toast("اختر صورة أولًا");
+  toast("جارٍ الرفع…");
+  const r = await uploadImage(f);
+  if (r.ok) { logoImageUrl = r.url; $("#logoPreview").innerHTML = `<img src="${esc(r.url)}" style="max-height:80px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:6px">`; toast("تم الرفع ✓ (اضغط حفظ)"); }
+  else toast("فشل الرفع");
+}
+function removeLogo() { logoImageUrl = ""; $("#logoPreview").innerHTML = '<span class="muted">لا يوجد شعار (سيظهر الاسم النصي)</span>'; toast("سيُزال عند الحفظ"); }
+async function saveSiteContent() {
+  const settings = {
+    logo_image: logoImageUrl,
+    about_title: $("#aboutTitle").value.trim(), about_content: $("#aboutContent").value.trim(),
+    contact_title: $("#contactTitle").value.trim(), contact_content: $("#contactContent").value.trim(),
+    offers_title: $("#offersTitle").value.trim(), offers_content: $("#offersContent").value.trim(),
+    footer_about: $("#footerAbout").value.trim(), footer_copyright: $("#footerCopyright").value.trim(),
+  };
+  const r = await call("settings_save", { settings });
+  toast(r.ok ? "تم حفظ المحتوى ✓" : "خطأ");
+}
+
 async function viewSettings() {
   const m = await call("meta");
   const s = m.ok ? m.settings : {};
