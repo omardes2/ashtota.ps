@@ -161,6 +161,30 @@ export async function fetchMenu(): Promise<MappedMenu | null> {
   }
 }
 
+/* ------------ كود الخصم ------------ */
+export interface CouponResult {
+  ok: boolean;
+  error?: string;
+  code?: string;
+  type?: "percent" | "fixed";
+  value?: number;
+  discount?: number;
+  min?: number | null;
+}
+
+export async function validateCoupon(code: string, subtotal: number): Promise<CouponResult> {
+  try {
+    const res = await fetch(`${API_BASE}/coupon.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, subtotal }),
+    });
+    return await res.json();
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
 /* ------------ إرسال الطلب ------------ */
 export interface SubmitOrderInput {
   branchId: string;
@@ -170,6 +194,7 @@ export interface SubmitOrderInput {
   zoneId?: string | null;
   address?: string;
   note?: string;
+  code?: string;
   items: { productId: string; qty: number; sizeId?: string | null; options: { id: string }[]; note?: string }[];
 }
 
@@ -178,6 +203,8 @@ export interface SubmitOrderResult {
   error?: string;
   orderNo?: string;
   total?: number;
+  discount?: number;
+  couponCode?: string | null;
   deliveryFee?: number;
   min?: number;
 }
@@ -230,6 +257,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
         zoneId: input.zoneId ? Number(input.zoneId) : null,
         address: input.address || "",
         note: input.note || "",
+        code: input.code || "",
         items: input.items.map((it) => ({
           productId: Number(it.productId),
           qty: it.qty,

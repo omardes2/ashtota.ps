@@ -151,7 +151,7 @@ function buildNav() {
   const items = [["dashboard", "📊 لوحة القيادة"], ["orders", "🧾 الطلبات"], ["requests", "📝 الطلبات اليومية"]];
   if (isSuper) items.push(
     ["products", "🍮 المنتجات"], ["branches", "🏬 الفروع"], ["categories", "🗂 التصنيفات"],
-    ["zones", "🛵 مناطق التوصيل"], ["users", "👥 المستخدمون"], ["reports", "📈 التقارير"],
+    ["zones", "🛵 مناطق التوصيل"], ["coupons", "🎟️ أكواد الخصم"], ["users", "👥 المستخدمون"], ["reports", "📈 التقارير"],
     ["content", "🎨 محتوى الموقع"], ["settings", "⚙️ الإعدادات"]
   );
   $("#nav").innerHTML = items.map((it, i) => `<button data-view="${it[0]}" ${i === 0 ? 'class="active"' : ""}>${it[1]}</button>`).join("");
@@ -167,11 +167,11 @@ $("#nav").addEventListener("click", (e) => {
 });
 $("#menuToggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 
-const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", requests: "الطلبات اليومية", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", users: "المستخدمون", reports: "التقارير", content: "محتوى الموقع", settings: "الإعدادات" };
+const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", requests: "الطلبات اليومية", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", coupons: "أكواد الخصم", users: "المستخدمون", reports: "التقارير", content: "محتوى الموقع", settings: "الإعدادات" };
 function navTo(view) {
   $("#viewTitle").textContent = TITLES[view] || "";
   content.innerHTML = `<div class="empty">جارِ التحميل…</div>`;
-  ({ dashboard: viewDashboard, orders: viewOrders, requests: viewRequests, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, users: viewUsers, reports: viewReports, content: viewSiteContent, settings: viewSettings }[view] || (() => {}))();
+  ({ dashboard: viewDashboard, orders: viewOrders, requests: viewRequests, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, coupons: viewCoupons, users: viewUsers, reports: viewReports, content: viewSiteContent, settings: viewSettings }[view] || (() => {}))();
 }
 
 /* ------------- لوحة القيادة ------------- */
@@ -663,6 +663,71 @@ function editZone(id) {
 async function delZone(id) { if (!confirm("حذف هذه المنطقة؟")) return; const r = await call("zone_delete", { id }); if (r.ok) { toast("تم الحذف"); viewZones(); } }
 
 /* ------------- الإعدادات ------------- */
+/* ------------- أكواد الخصم (المدير العام فقط) ------------- */
+let COUPONS = [];
+async function viewCoupons() {
+  const r = await call("coupons_list");
+  if (!r.ok) return content.innerHTML = err(r);
+  COUPONS = r.coupons || [];
+  content.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>🎟️ أكواد الخصم وتقرير الاستخدام</h2><span class="sp"></span>
+        <button class="btn-primary btn-sm" onclick="editCoupon()">+ كود جديد</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>الكود</th><th>النوع</th><th>القيمة</th><th>حد أدنى</th><th>الاستخدام</th><th>عدد الطلبات</th><th>إجمالي الخصم</th><th>الصلاحية</th><th>الحالة</th><th></th></tr></thead>
+        <tbody>${COUPONS.length ? COUPONS.map(couponRow).join("") : `<tr><td colspan="10"><div class="empty">لا توجد أكواد خصم بعد</div></td></tr>`}</tbody>
+      </table></div>
+    </div>`;
+}
+function couponRow(c) {
+  const used = `${c.used_count}${(+c.max_uses) > 0 ? " / " + c.max_uses : " / ∞"}`;
+  const val = c.type === "percent" ? (+c.value) + "%" : money(c.value);
+  return `<tr>
+    <td><b>${esc(c.code)}</b></td>
+    <td>${c.type === "percent" ? "نسبة" : "مبلغ"}</td>
+    <td>${val}</td>
+    <td>${(+c.min_order) > 0 ? money(c.min_order) : "—"}</td>
+    <td>${used}</td>
+    <td>${c.orders_count || 0}</td>
+    <td><b>${money(c.total_discount || 0)}</b></td>
+    <td>${c.expires_at ? esc(c.expires_at) : "—"}</td>
+    <td>${(+c.active) ? '<span class="dot-open">مفعّل</span>' : '<span class="dot-closed">موقوف</span>'}</td>
+    <td><div class="row-actions">
+      <button class="icon-btn" onclick="editCoupon(${c.id})">✏️</button>
+      <button class="icon-btn danger" onclick="delCoupon(${c.id})">🗑</button>
+    </div></td>
+  </tr>`;
+}
+function editCoupon(id) {
+  const c = id ? (COUPONS.find(x => +x.id === +id) || {}) : {};
+  modal(c.id ? "تعديل كود الخصم" : "كود خصم جديد", `
+    <div class="field"><label>الكود</label><input id="cpCode" value="${esc(c.code || "")}" placeholder="WELCOME20" style="text-transform:uppercase"></div>
+    <div class="grid2">
+      <div class="field"><label>نوع الخصم</label>
+        <select id="cpType"><option value="percent" ${c.type !== "fixed" ? "selected" : ""}>نسبة مئوية %</option><option value="fixed" ${c.type === "fixed" ? "selected" : ""}>مبلغ ثابت ₪</option></select></div>
+      <div class="field"><label>القيمة</label><input id="cpValue" type="number" step="0.1" value="${esc(c.value ?? "")}"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>حد أدنى للطلب (₪)</label><input id="cpMin" type="number" step="0.1" value="${esc(c.min_order ?? 0)}"></div>
+      <div class="field"><label>عدد مرات الاستخدام (0 = غير محدود)</label><input id="cpMax" type="number" step="1" value="${esc(c.max_uses ?? 0)}"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>تاريخ انتهاء الصلاحية (اختياري)</label><input id="cpExp" type="date" value="${esc(c.expires_at || "")}"></div>
+      <div class="field"><label>الحالة</label><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="cpActive" type="checkbox" ${(c.active === undefined || +c.active) ? "checked" : ""}> مفعّل</label></div>
+    </div>
+    <p class="muted" style="font-size:.82rem">مثال: كود لأول 100 طلب → اجعل «عدد مرات الاستخدام» = 100.</p>
+  `, [
+    { label: "حفظ", cls: "btn-primary", fn: async () => {
+      const payload = { id: c.id || 0, code: $("#cpCode").value.trim(), type: $("#cpType").value, value: +$("#cpValue").value || 0, min_order: +$("#cpMin").value || 0, max_uses: +$("#cpMax").value || 0, expires_at: $("#cpExp").value || "", active: $("#cpActive").checked ? 1 : 0 };
+      if (!payload.code) return toast("أدخل الكود");
+      const rr = await call("coupon_save", payload);
+      if (rr.ok) { toast("تم الحفظ ✓"); closeModal(); viewCoupons(); }
+      else toast(rr.error === "duplicate_code" ? "الكود مستخدم مسبقًا" : "خطأ");
+    } },
+  ]);
+}
+async function delCoupon(id) { if (!confirm("حذف هذا الكود؟")) return; const r = await call("coupon_delete", { id }); if (r.ok) { toast("تم الحذف"); viewCoupons(); } else toast("خطأ"); }
+
 /* ------------- محتوى الموقع (شعار + صفحات + فوتر) ------------- */
 let logoImageUrl = "";
 async function viewSiteContent() {

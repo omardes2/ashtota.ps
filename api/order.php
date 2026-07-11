@@ -96,9 +96,24 @@ if ($mode === 'delivery') {
   $fee = ($zone['free_over'] !== null && $subtotal >= (float)$zone['free_over']) ? 0 : (float)$zone['fee'];
 }
 
-$total = $subtotal + $fee;
+// كود الخصم (يُتحقق من الخادم؛ لا نثق بأي خصم من المتصفح)
+$discount = 0;
+$couponCode = null;
+$couponRow = null;
+$codeIn = trim($in['code'] ?? '');
+if ($codeIn !== '') {
+  $cv = validate_coupon($codeIn, $subtotal);
+  if ($cv['ok']) {
+    $discount = (float)$cv['discount'];
+    $couponRow = $cv['coupon'];
+    $couponCode = $couponRow['code'];
+  }
+}
+
+$total = $subtotal - $discount + $fee;
+if ($total < 0) $total = 0;
 $pps = (float)(db_setting('points_per_shekel') ?? 1);
-$points = (int)round($subtotal * $pps);
+$points = (int)round(max(0, $subtotal - $discount) * $pps);
 
 // رقم الطلب: سنة(رقمان) + شهر + يوم + تسلسل يومي يبدأ من 100
 $today = date('Y-m-d');
@@ -108,10 +123,15 @@ $seq = 100 + (int)$cntStmt->fetch()['c'];
 $orderNo = date('y') . (int)date('n') . date('d') . $seq;
 
 // حفظ الطلب
-$p->prepare("INSERT INTO orders (order_no,branch_id,customer_name,phone,mode,zone_id,address,payment,note,subtotal,delivery_fee,total,points,status,created_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'new', ?)")
-  ->execute([$orderNo, $branchId, $name, $phone, $mode, $zoneId, $address, 'cash', $note, $subtotal, $fee, $total, $points, now_str()]);
+$p->prepare("INSERT INTO orders (order_no,branch_id,customer_name,phone,mode,zone_id,address,payment,note,subtotal,delivery_fee,total,points,status,created_at,coupon_code,discount)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'new', ?,?,?)")
+  ->execute([$orderNo, $branchId, $name, $phone, $mode, $zoneId, $address, 'cash', $note, $subtotal, $fee, $total, $points, now_str(), $couponCode, $discount]);
 $orderId = (int)$p->lastInsertId();
+
+// زيادة عدّاد استخدام الكوبون عند نجاح الطلب
+if ($couponRow) {
+  $p->prepare("UPDATE coupons SET used_count = used_count + 1 WHERE id=?")->execute([(int)$couponRow['id']]);
+}
 
 $itStmt = $p->prepare("INSERT INTO order_items (order_id,product_id,name,qty,unit_price,line_total,options_text,note) VALUES (?,?,?,?,?,?,?,?)");
 foreach ($lineRows as $r) {
@@ -121,7 +141,8 @@ foreach ($lineRows as $r) {
 json_out([
   'ok' => true,
   'orderId' => $orderId, 'orderNo' => $orderNo,
-  'subtotal' => $subtotal, 'deliveryFee' => $fee, 'total' => $total, 'points' => $points,
+  'subtotal' => $subtotal, 'discount' => $discount, 'couponCode' => $couponCode,
+  'deliveryFee' => $fee, 'total' => $total, 'points' => $points,
   'branchWhatsapp' => $branch['whatsapp'],
 ]);
 

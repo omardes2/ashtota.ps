@@ -66,6 +66,35 @@ function db_installed(): bool {
 function now_str(): string { return date('Y-m-d H:i:s'); }
 
 /**
+ * التحقق من كود الخصم وحساب قيمته. يُستخدم في coupon.php (عرض) و order.php (تطبيق).
+ * يعيد ['ok'=>bool, 'error'=>?, 'discount'=>float, 'coupon'=>row].
+ */
+function validate_coupon(string $code, float $subtotal): array {
+  $code = trim($code);
+  if ($code === '') return ['ok' => false, 'error' => 'empty'];
+  $st = db()->prepare("SELECT * FROM coupons WHERE UPPER(code)=UPPER(?) LIMIT 1");
+  $st->execute([$code]);
+  $c = $st->fetch();
+  if (!$c) return ['ok' => false, 'error' => 'not_found'];
+  if (!(int)$c['active']) return ['ok' => false, 'error' => 'inactive'];
+  if (!empty($c['expires_at']) && date('Y-m-d') > substr((string)$c['expires_at'], 0, 10)) {
+    return ['ok' => false, 'error' => 'expired'];
+  }
+  if ((int)$c['max_uses'] > 0 && (int)$c['used_count'] >= (int)$c['max_uses']) {
+    return ['ok' => false, 'error' => 'limit_reached'];
+  }
+  if ($subtotal < (float)$c['min_order']) {
+    return ['ok' => false, 'error' => 'below_min', 'min' => (float)$c['min_order']];
+  }
+  $discount = $c['type'] === 'fixed'
+    ? min((float)$c['value'], $subtotal)
+    : round($subtotal * (float)$c['value'] / 100, 2);
+  if ($discount < 0) $discount = 0;
+  if ($discount > $subtotal) $discount = $subtotal;
+  return ['ok' => true, 'discount' => $discount, 'coupon' => $c];
+}
+
+/**
  * ترحيل تلقائي لقاعدة البيانات (يعمل مرة واحدة عند الحاجة).
  * v3: إضافة أعمدة الصورة والأحجام والإضافات، وتحويل الأحجام/الإضافات
  * القديمة (من مجموعات الخيارات) إلى JSON لكل منتج.
@@ -82,7 +111,7 @@ function ensure_migrations(): void {
     return; // النظام غير مثبّت بعد
   }
   $ver = (int)($row['sval'] ?? 0);
-  if ($ver >= 7) return;
+  if ($ver >= 8) return;
 
   // v3: أعمدة الأحجام/الإضافات/الصورة للمنتجات + تحويل مجموعات الخيارات
   if ($ver < 3) {
@@ -127,9 +156,34 @@ function ensure_migrations(): void {
     try { $p->exec("ALTER TABLE orders ADD COLUMN delivered_at TEXT"); } catch (Throwable $e) { /* موجود */ }
   }
 
+  // v8: أكواد الخصم + أعمدة الخصم على الطلبات
+  if ($ver < 8) {
+    foreach ([
+      "ALTER TABLE orders ADD COLUMN coupon_code TEXT",
+      "ALTER TABLE orders ADD COLUMN discount REAL DEFAULT 0",
+    ] as $sql) {
+      try { $p->exec($sql); } catch (Throwable $e) { /* العمود موجود */ }
+    }
+    $codeType = DB_DRIVER === 'mysql' ? 'VARCHAR(191)' : 'TEXT';
+    try {
+      $p->exec("CREATE TABLE IF NOT EXISTS coupons (
+        id " . pk_type() . ",
+        code $codeType,
+        type TEXT DEFAULT 'percent',
+        value REAL DEFAULT 0,
+        min_order REAL DEFAULT 0,
+        max_uses INTEGER DEFAULT 0,
+        used_count INTEGER DEFAULT 0,
+        expires_at TEXT,
+        active INTEGER DEFAULT 1,
+        created_at TEXT
+      )");
+    } catch (Throwable $e) { /* موجود */ }
+  }
+
   $up = $p->prepare(DB_DRIVER === 'mysql'
-    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','7')"
-    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','7')");
+    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','8')"
+    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','8')");
   $up->execute();
 }
 

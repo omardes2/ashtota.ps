@@ -1,12 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/useCartStore";
 import { useBranchStore } from "@/store/useBranchStore";
 import { useUiStore } from "@/store/useUiStore";
 import { useMenuStore } from "@/store/useMenuStore";
+import { useCouponStore } from "@/store/useCouponStore";
 import { useHydrated } from "@/lib/useHydrated";
-import { submitOrder } from "@/lib/api";
+import { submitOrder, validateCoupon } from "@/lib/api";
 import OrderSummary from "@/components/cart/OrderSummary";
 import EmptyState from "@/components/shared/EmptyState";
 import { cn } from "@/lib/utils";
@@ -22,9 +23,22 @@ export default function CheckoutPage() {
   const allZones = useMenuStore((s) => s.zones);
   const zones = allZones.filter((z) => z.branchId === branchId);
   const showToast = useUiStore((s) => s.showToast);
+  const couponCode = useCouponStore((s) => s.code);
+  const clearCoupon = useCouponStore((s) => s.clear);
   const subtotal = items.reduce((a, i) => a + i.unitPrice * i.qty, 0);
   const [zoneId, setZoneId] = useState("");
+  const [discount, setDiscount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  // التحقق من كود الخصم لعرضه في الملخص (المصدر النهائي هو الخادم)
+  useEffect(() => {
+    if (!couponCode) { setDiscount(0); return; }
+    let alive = true;
+    validateCoupon(couponCode, subtotal).then((r) => {
+      if (alive) setDiscount(r.ok ? r.discount || 0 : 0);
+    });
+    return () => { alive = false; };
+  }, [couponCode, subtotal]);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -56,6 +70,7 @@ export default function CheckoutPage() {
       );
     } catch {}
     clear();
+    clearCoupon();
     router.push("/order-success");
   }
 
@@ -78,6 +93,7 @@ export default function CheckoutPage() {
       zoneId: mode === "delivery" ? zoneId || null : null,
       address: addressText,
       note,
+      code: couponCode || "",
       items: items.map((i) => ({
         productId: i.productId,
         qty: i.qty,
@@ -176,7 +192,7 @@ export default function CheckoutPage() {
                 </div>
               ))}
             </div>
-            <OrderSummary subtotal={subtotal} deliveryFee={deliveryFee} showDelivery={mode === "delivery"} />
+            <OrderSummary subtotal={subtotal} discount={discount} deliveryFee={deliveryFee} showDelivery={mode === "delivery"} />
             <button onClick={confirm} disabled={submitting} className="btn-primary mt-4 w-full text-base disabled:opacity-70">
               {submitting ? "جارٍ الإرسال…" : "تأكيد الطلب"}
             </button>

@@ -28,10 +28,10 @@ export default function CartItemRow({ item }: { item: CartItem }) {
           <h3 className="font-extrabold text-ink">{item.name}</h3>
           <button
             onClick={() => removeItem(item.key)}
-            className="text-sm font-bold text-red-500 hover:underline"
+            className="flex-shrink-0 rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-500 transition hover:bg-red-100"
             aria-label="حذف المنتج"
           >
-            🗑
+            حذف
           </button>
         </div>
         {details.length > 0 && (

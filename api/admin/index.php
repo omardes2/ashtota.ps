@@ -58,12 +58,14 @@ function require_super_role(bool $isSuper): void {
 /* التعديلات تتطلب CSRF */
 $mutations = ['order_status','product_save','product_delete','branch_save','branch_delete',
   'category_save','category_delete','zone_save','zone_delete','settings_save','change_password',
-  'user_save','user_delete','request_save','request_update','request_delete'];
+  'user_save','user_delete','request_save','request_update','request_delete',
+  'coupon_save','coupon_delete'];
 if (in_array($action, $mutations, true)) check_csrf();
 
 /* إجراءات إدارية للمدير العام فقط */
 $superOnly = ['product_save','product_delete','branch_save','branch_delete','category_save',
-  'category_delete','zone_save','zone_delete','settings_save','users_list','user_save','user_delete','reports','request_update'];
+  'category_delete','zone_save','zone_delete','settings_save','users_list','user_save','user_delete','reports','request_update',
+  'coupons_list','coupon_save','coupon_delete'];
 if (in_array($action, $superOnly, true)) require_super_role($isSuper);
 
 switch ($action) {
@@ -424,6 +426,48 @@ switch ($action) {
       if (!$rq || (int)$rq['branch_id'] !== (int)$myBranch) json_out(['ok' => false, 'error' => 'forbidden'], 403);
     }
     $p->prepare("DELETE FROM branch_requests WHERE id=?")->execute([$id]);
+    json_out(['ok' => true]);
+  }
+
+  /* ---------------- أكواد الخصم (المدير العام فقط) ---------------- */
+  case 'coupons_list': {
+    // مع تقرير الاستخدام: عدد الطلبات وإجمالي الخصم الفعلي من الطلبات غير الملغاة
+    $rows = $p->query("SELECT c.*,
+      (SELECT COUNT(*) FROM orders o WHERE UPPER(o.coupon_code)=UPPER(c.code) AND o.status NOT IN('cancelled','rejected')) orders_count,
+      (SELECT COALESCE(SUM(o.discount),0) FROM orders o WHERE UPPER(o.coupon_code)=UPPER(c.code) AND o.status NOT IN('cancelled','rejected')) total_discount
+      FROM coupons c ORDER BY c.id DESC")->fetchAll();
+    json_out(['ok' => true, 'coupons' => $rows]);
+  }
+
+  case 'coupon_save': {
+    $id = (int)($in['id'] ?? 0);
+    $code = strtoupper(trim((string)($in['code'] ?? '')));
+    $type = ($in['type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent';
+    $value = max(0, (float)($in['value'] ?? 0));
+    $minOrder = max(0, (float)($in['min_order'] ?? 0));
+    $maxUses = max(0, (int)($in['max_uses'] ?? 0));
+    $expires = trim((string)($in['expires_at'] ?? ''));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $expires)) $expires = null;
+    $active = !empty($in['active']) ? 1 : 0;
+    if ($code === '') json_out(['ok' => false, 'error' => 'empty_code'], 400);
+    // منع تكرار الكود
+    $dup = $p->prepare("SELECT id FROM coupons WHERE UPPER(code)=UPPER(?) AND id<>?");
+    $dup->execute([$code, $id]);
+    if ($dup->fetch()) json_out(['ok' => false, 'error' => 'duplicate_code'], 400);
+
+    if ($id) {
+      $p->prepare("UPDATE coupons SET code=?,type=?,value=?,min_order=?,max_uses=?,expires_at=?,active=? WHERE id=?")
+        ->execute([$code, $type, $value, $minOrder, $maxUses, $expires, $active, $id]);
+    } else {
+      $p->prepare("INSERT INTO coupons (code,type,value,min_order,max_uses,used_count,expires_at,active,created_at) VALUES (?,?,?,?,?,0,?,?,?)")
+        ->execute([$code, $type, $value, $minOrder, $maxUses, $expires, $active, now_str()]);
+    }
+    json_out(['ok' => true]);
+  }
+
+  case 'coupon_delete': {
+    $id = (int)($in['id'] ?? 0);
+    $p->prepare("DELETE FROM coupons WHERE id=?")->execute([$id]);
     json_out(['ok' => true]);
   }
 

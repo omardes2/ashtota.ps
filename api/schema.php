@@ -125,7 +125,23 @@ function install_schema(): void {
     points INTEGER DEFAULT 0,
     status TEXT DEFAULT 'new',
     created_at TEXT,
-    delivered_at TEXT
+    delivered_at TEXT,
+    coupon_code TEXT,
+    discount REAL DEFAULT 0
+  )");
+
+  $codeType = DB_DRIVER === 'mysql' ? 'VARCHAR(191)' : 'TEXT';
+  $p->exec("CREATE TABLE IF NOT EXISTS coupons (
+    id $PK,
+    code $codeType,
+    type TEXT DEFAULT 'percent',
+    value REAL DEFAULT 0,
+    min_order REAL DEFAULT 0,
+    max_uses INTEGER DEFAULT 0,
+    used_count INTEGER DEFAULT 0,
+    expires_at TEXT,
+    active INTEGER DEFAULT 1,
+    created_at TEXT
   )");
 
   $p->exec("CREATE TABLE IF NOT EXISTS order_items (
@@ -230,7 +246,7 @@ function seed_data(): void {
   foreach ($zones as $z) { $zStmt->execute([$bIds[$z[0]],$z[1],$z[2],$z[3],$z[4]]); }
 
   // تثبيت أحدث نسخة للمخطط (تثبيت جديد لا يحتاج ترحيلًا)
-  $set->execute(['schema_version', '7']);
+  $set->execute(['schema_version', '8']);
 }
 
 /**

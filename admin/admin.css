@@ -7,9 +7,11 @@
   --font:"Cairo",Tahoma,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);direction:rtl}
 button{font-family:inherit;cursor:pointer;border:none;background:none}
 input,select,textarea{font-family:inherit}
+@media (max-width:640px){input,select,textarea{font-size:16px}}
 .hidden{display:none!important}
 .muted{color:var(--muted)}
 
