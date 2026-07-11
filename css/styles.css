@@ -389,4 +389,26 @@ a { color: inherit; text-decoration: none; }
 }
 .toast.show { opacity: 1; transform: translateY(0); }
 
+/* ---------------------- صفحة الشكر ---------------------- */
+.thankyou { text-align: center; padding: 34px 20px 30px; }
+.thankyou .ty-check {
+  width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 16px;
+  display: grid; place-items: center; font-size: 2.6rem; color: #fff;
+  background: linear-gradient(135deg, var(--green), #57c98d);
+  box-shadow: 0 10px 26px rgba(63,157,107,.35);
+  animation: pop .35s ease;
+}
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.thankyou h2 { color: var(--brown); font-size: 1.35rem; margin-bottom: 6px; }
+.thankyou .ty-sub { color: var(--muted); margin-bottom: 18px; }
+.thankyou .ty-card {
+  background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 14px 16px; text-align: right; margin: 0 auto 16px; max-width: 380px;
+}
+.thankyou .ty-row { display: flex; justify-content: space-between; padding: 7px 0; font-size: .95rem; }
+.thankyou .ty-row span { color: var(--muted); }
+.thankyou .ty-row.total { border-top: 1.5px dashed var(--cream-2); margin-top: 6px; padding-top: 10px; font-size: 1.1rem; color: var(--brown); }
+.thankyou .ty-note { color: var(--muted); font-size: .85rem; margin-bottom: 18px; }
+.thankyou .big-btn { max-width: 380px; margin: 0 auto; }
+
 .hidden { display: none !important; }

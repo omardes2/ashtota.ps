@@ -287,39 +287,17 @@ const App = (() => {
         if (messages[r.error]) { toast(messages[r.error]); return; }
       }
     } catch (e) {
-      // الـ backend غير متاح — نكمل بإرسال واتساب فقط
+      // الـ backend غير متاح — نُكمل ونعرض صفحة الشكر على أي حال
     }
 
-    // بناء رسالة واتساب
-    let msg = `*طلب جديد - قشطوطة بلبن* 🍮%0A`;
-    msg += `رقم الطلب: ${orderNo}%0A`;
-    msg += `الفرع: ${branch.name}%0A`;
-    msg += `الاسم: ${name}%0A`;
-    msg += `الهاتف: ${phone}%0A`;
-    msg += `الاستلام: ${mode === "delivery" ? "توصيل" : "استلام من الفرع"}%0A`;
-    if (mode === "delivery") {
-      msg += `المنطقة: ${zone.name}%0A`;
-      msg += `العنوان: ${document.getElementById("ckAddress").value.trim()}%0A`;
-    }
-    msg += `----------%0A`;
-    Cart.items().forEach(it => {
-      const p = STORE.products.find(x => x.id === it.productId);
-      msg += `• ${p.name} ×${it.qty} = ${UI.money(it.lineTotal)}%0A`;
-      if (it.options.length) msg += `   (${it.options.map(o => o.name).join("، ")})%0A`;
-      if (it.note) msg += `   ملاحظة: ${it.note}%0A`;
-    });
-    if (note) msg += `ملاحظة الطلب: ${note}%0A`;
-    msg += `----------%0A`;
-    msg += `المجموع الفرعي: ${UI.money(Cart.subtotal())}%0A`;
-    msg += `التوصيل: ${mode === "pickup" ? "-" : UI.money(fee)}%0A`;
-    msg += `*الإجمالي: ${UI.money(total)}*%0A`;
-    msg += `الدفع: نقدًا عند الاستلام`;
+    // إفراغ السلة وعرض صفحة الشكر
+    Cart.clear();
+    showSheet(UI.thankYouSheet(orderNo, total, branch, mode), "thankyou");
+  }
 
-    const waNumber = branch.whatsapp || STORE.brand.whatsapp;
-    window.open(`https://wa.me/${waNumber}?text=${msg}`, "_blank");
-
-    toast("تم إرسال طلبك ✓");
-    setTimeout(() => { Cart.clear(); closeSheet(); }, 800);
+  function finishOrder() {
+    closeSheet();
+    goHome();
   }
 
   /* ------------------ Toast ------------------ */
@@ -335,7 +313,7 @@ const App = (() => {
   return {
     init, goHome, startOrder, openBranchSheet, chooseBranch,
     openProduct, qtyDelta, confirmAdd, closeSheet,
-    openCart, cartQty, cartRemove, openCheckout, placeOrder,
+    openCart, cartQty, cartRemove, openCheckout, placeOrder, finishOrder,
   };
 })();
 

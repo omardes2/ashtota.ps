@@ -251,10 +251,10 @@ const UI = (() => {
 
         <div class="summary" id="ckSummary"></div>
         <button class="big-btn" style="margin-top:14px" onclick="App.placeOrder()">
-          تأكيد الطلب عبر واتساب 💬
+          ✓ تأكيد الطلب
         </button>
         <p style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:10px">
-          سيتم إرسال تفاصيل الطلب إلى الفرع عبر واتساب لتأكيده.
+          سيصل طلبك إلى الفرع مباشرة وسيتم تجهيزه.
         </p>
       </div>`;
   }
@@ -270,8 +270,26 @@ const UI = (() => {
       <div class="row total"><span>الإجمالي</span><span>${money(total)}</span></div>`;
   }
 
+  /* ------------------ صفحة الشكر ------------------ */
+  function thankYouSheet(orderNo, total, branch, mode) {
+    return `
+      <div class="thankyou">
+        <div class="ty-check">✓</div>
+        <h2>شكرًا لطلبك من قشطوطة بلبن 🍮</h2>
+        <p class="ty-sub">تم استلام طلبك بنجاح وسيتم تجهيزه.</p>
+        <div class="ty-card">
+          <div class="ty-row"><span>رقم الطلب</span><b>${orderNo}</b></div>
+          <div class="ty-row"><span>الفرع</span><b>${branch ? branch.name : "-"}</b></div>
+          <div class="ty-row"><span>طريقة الاستلام</span><b>${mode === "pickup" ? "استلام من الفرع" : "توصيل"}</b></div>
+          <div class="ty-row total"><span>الإجمالي</span><b>${money(total)}</b></div>
+        </div>
+        <p class="ty-note">سنتواصل معك لتأكيد الطلب عند الحاجة.</p>
+        <button class="big-btn" onclick="App.finishOrder()">العودة للرئيسية</button>
+      </div>`;
+  }
+
   return {
     money, renderCats, renderMenu, productSheet, cartSheet, branchSheet,
-    renderBranchesList, checkoutSheet, checkoutSummary,
+    renderBranchesList, checkoutSheet, checkoutSummary, thankYouSheet,
   };
 })();
