@@ -148,6 +148,27 @@ export interface SubmitOrderResult {
   min?: number;
 }
 
+/* ------------ تتبع الطلب ------------ */
+export interface TrackOrderResult {
+  ok: boolean;
+  error?: string;
+  orderNo?: string;
+  status?: string;
+  mode?: "delivery" | "pickup";
+  total?: number;
+  branchName?: string;
+  createdAt?: string;
+}
+
+export async function trackOrder(orderNo: string): Promise<TrackOrderResult> {
+  try {
+    const res = await fetch(`${API_BASE}/track.php?no=${encodeURIComponent(orderNo)}`, { cache: "no-store" });
+    return await res.json();
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
 export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderResult> {
   try {
     const res = await fetch(`${API_BASE}/order.php`, {

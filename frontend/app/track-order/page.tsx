@@ -1,37 +1,146 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import OrderStatusTimeline from "@/components/shared/OrderStatusTimeline";
+import { trackOrder, type TrackOrderResult } from "@/lib/api";
+
+// تحويل حالة الطلب في قاعدة البيانات إلى موضع على شريط التتبع
+const STATUS_INDEX: Record<string, number> = {
+  new: 0,
+  confirmed: 1,
+  preparing: 2,
+  ready: 3,
+  out_for_delivery: 4,
+  delivering: 4,
+  delivered: 5,
+  completed: 5,
+};
+const STATUS_LABEL: Record<string, string> = {
+  new: "تم استلام الطلب",
+  confirmed: "الطلب قيد التأكيد",
+  preparing: "الطلب قيد التحضير",
+  ready: "الطلب جاهز",
+  out_for_delivery: "الطلب قيد التوصيل",
+  delivering: "الطلب قيد التوصيل",
+  delivered: "تم تسليم الطلب",
+  completed: "تم تسليم الطلب",
+  cancelled: "تم إلغاء الطلب",
+  rejected: "تم رفض الطلب",
+};
 
 export default function TrackOrderPage() {
-  const [order, setOrder] = useState<{ orderNo?: string; branchName?: string } | null>(null);
+  const [orderNo, setOrderNo] = useState("");
+  const [input, setInput] = useState("");
+  const [data, setData] = useState<TrackOrderResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
+  const refresh = useCallback(async (no: string) => {
+    if (!no) return;
+    setLoading(true);
+    setNotFound(false);
+    const res = await trackOrder(no);
+    if (res.ok) {
+      setData(res);
+    } else {
+      setData(null);
+      setNotFound(true);
+    }
+    setLoading(false);
+  }, []);
+
+  // عند فتح الصفحة: اقرأ رقم الطلب الأخير من التخزين المحلي وابدأ التتبع
   useEffect(() => {
     try {
       const raw = localStorage.getItem("qashtoota-last-order");
-      if (raw) setOrder(JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.orderNo) {
+          setOrderNo(String(parsed.orderNo));
+          setInput(String(parsed.orderNo));
+        }
+      }
     } catch {}
   }, []);
+
+  // جلب الحالة وتحديثها تلقائيًا كل 20 ثانية لتطابق لوحة التحكم
+  useEffect(() => {
+    if (!orderNo) return;
+    refresh(orderNo);
+    const t = setInterval(() => refresh(orderNo), 20000);
+    return () => clearInterval(t);
+  }, [orderNo, refresh]);
+
+  const status = data?.status ?? "";
+  const isCancelled = status === "cancelled" || status === "rejected";
+  const currentIndex = STATUS_INDEX[status] ?? 0;
 
   return (
     <div className="container-p py-6">
       <h1 className="mb-4 text-2xl font-black text-ink">تتبع الطلب</h1>
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="card p-5 md:col-span-2">
-          <OrderStatusTimeline currentIndex={2} />
+
+      {/* البحث برقم الطلب */}
+      <form
+        className="mb-6 flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const v = input.trim();
+          if (v) setOrderNo(v);
+        }}
+      >
+        <input
+          className="w-full flex-1 rounded-xl2 border-2 border-cloud px-3 py-2 outline-none focus:border-brand-light"
+          placeholder="أدخل رقم الطلب"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          inputMode="numeric"
+        />
+        <button type="submit" className="btn-primary whitespace-nowrap">
+          تتبع
+        </button>
+      </form>
+
+      {notFound && (
+        <div className="card mb-6 border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-600">
+          لم يتم العثور على طلب بهذا الرقم.
         </div>
-        <div className="space-y-3">
-          <div className="card p-4 text-sm">
-            <Info label="رقم الطلب" value={order?.orderNo ?? "—"} />
-            <Info label="الفرع" value={order?.branchName ?? "—"} />
-            <Info label="وقت التوصيل المتوقع" value="30 - 45 دقيقة" />
-            <Info label="مندوب التوصيل" value="أحمد" />
-            <Info label="رقم الهاتف" value="0599xxxxxx" />
+      )}
+
+      {data && (
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="card p-5 md:col-span-2">
+            {isCancelled ? (
+              <div className="rounded-xl bg-red-50 p-4 text-center font-extrabold text-red-600">
+                {STATUS_LABEL[status] ?? "تم إلغاء الطلب"}
+              </div>
+            ) : (
+              <OrderStatusTimeline currentIndex={currentIndex} />
+            )}
           </div>
-          <a href="https://wa.me/970599000000" target="_blank" rel="noopener noreferrer" className="btn-primary w-full bg-[#25D366] hover:bg-[#1fb457]">
-            💬 تواصل عبر واتساب
-          </a>
+          <div className="space-y-3">
+            <div className="card p-4 text-sm">
+              <Info label="رقم الطلب" value={data.orderNo ?? "—"} />
+              <Info label="الفرع" value={data.branchName ?? "—"} />
+              <Info label="الحالة" value={STATUS_LABEL[status] ?? "—"} />
+              <Info
+                label="نوع الطلب"
+                value={data.mode === "pickup" ? "استلام من الفرع" : "توصيل"}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn-outline w-full"
+              onClick={() => refresh(orderNo)}
+              disabled={loading}
+            >
+              {loading ? "جارٍ التحديث…" : "🔄 تحديث الحالة"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {!data && !notFound && !loading && (
+        <p className="text-gray-500">أدخل رقم طلبك لعرض حالته.</p>
+      )}
     </div>
   );
 }
