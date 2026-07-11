@@ -134,8 +134,35 @@ omardes2/ashtota.ps
 في ملف SQLite **خارج مجلد الموقع** (`qashtoota_data/` بجانب `public_html`)،
 فلا يصله أحد من الويب، ولا يُحذف عند تحديث الموقع من GitHub.
 
-> عند التوسّع مستقبلًا يمكن التحويل إلى MySQL بتغيير `DB_DRIVER` في
-> `api/config.php` وإدخال بيانات قاعدة MySQL.
+### 🗄️ التحويل إلى MySQL (قاعدة بيانات ظاهرة في hPanel)
+
+إن رغبت بقاعدة بيانات MySQL تديرها من hPanel (phpMyAdmin):
+
+**1. أنشئ قاعدة MySQL في هوستنجر**
+- hPanel ← **Databases → MySQL Databases**.
+- أنشئ قاعدة بيانات جديدة، واحفظ: اسم القاعدة، اسم المستخدم، كلمة المرور.
+  (عادةً تكون بصيغة `uXXXXXXX_qashtoota`).
+
+**2. أنشئ ملف الإعدادات السري على الخادم**
+- في **File Manager** ← افتح مجلد `public_html/api/`.
+- انسخ الملف `config.local.sample.php` وسمِّه **`config.local.php`**.
+- عدّله وضع بيانات قاعدتك:
+  ```php
+  <?php
+  define('DB_DRIVER', 'mysql');
+  define('MYSQL_HOST', 'localhost');
+  define('MYSQL_DB',   'uXXXXXXX_qashtoota');
+  define('MYSQL_USER', 'uXXXXXXX_qashtoota');
+  define('MYSQL_PASS', 'كلمة-المرور');
+  ```
+> 🔒 هذا الملف **غير مرفوع على GitHub** (كلمات المرور آمنة)، ولا يُحذف عند التحديث.
+
+**3. ثبّت الجداول**
+- افتح مرة واحدة: `https://موقعك/api/install.php`
+- سيقول: `المحرك: mysql` ويُنشئ الجداول ويعطيك كلمة مرور مدير جديدة.
+- الآن قاعدة بياناتك ظاهرة في **phpMyAdmin** وتديرها من hPanel.
+
+> النظام اختُبر فعليًا على MySQL (إنشاء الجداول، عرض المنيو، حفظ الطلبات، لوحة التحكم) — كلها تعمل.
 
 ### ملاحظة أمنية
 

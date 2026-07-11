@@ -9,13 +9,13 @@ function install_schema(): void {
   $PK = pk_type();
 
   $p->exec("CREATE TABLE IF NOT EXISTS settings (
-    skey TEXT PRIMARY KEY,
+    skey VARCHAR(191) PRIMARY KEY,
     sval TEXT
   )");
 
   $p->exec("CREATE TABLE IF NOT EXISTS admins (
     id $PK,
-    username TEXT UNIQUE NOT NULL,
+    username VARCHAR(191) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     name TEXT,
     role TEXT DEFAULT 'admin',
