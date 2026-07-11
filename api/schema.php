@@ -138,6 +138,15 @@ function install_schema(): void {
     options_text TEXT,
     note TEXT
   )");
+
+  $p->exec("CREATE TABLE IF NOT EXISTS branch_requests (
+    id $PK,
+    branch_id INTEGER,
+    admin_id INTEGER,
+    body TEXT,
+    status TEXT DEFAULT 'open',
+    created_at TEXT
+  )");
 }
 
 /** تعبئة بيانات أولية (فقط إذا كانت الجداول فارغة) */
@@ -220,7 +229,7 @@ function seed_data(): void {
   foreach ($zones as $z) { $zStmt->execute([$bIds[$z[0]],$z[1],$z[2],$z[3],$z[4]]); }
 
   // تثبيت أحدث نسخة للمخطط (تثبيت جديد لا يحتاج ترحيلًا)
-  $set->execute(['schema_version', '5']);
+  $set->execute(['schema_version', '6']);
 }
 
 /**

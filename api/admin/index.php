@@ -58,12 +58,12 @@ function require_super_role(bool $isSuper): void {
 /* التعديلات تتطلب CSRF */
 $mutations = ['order_status','product_save','product_delete','branch_save','branch_delete',
   'category_save','category_delete','zone_save','zone_delete','settings_save','change_password',
-  'user_save','user_delete'];
+  'user_save','user_delete','request_save','request_update','request_delete'];
 if (in_array($action, $mutations, true)) check_csrf();
 
 /* إجراءات إدارية للمدير العام فقط */
 $superOnly = ['product_save','product_delete','branch_save','branch_delete','category_save',
-  'category_delete','zone_save','zone_delete','settings_save','users_list','user_save','user_delete','reports'];
+  'category_delete','zone_save','zone_delete','settings_save','users_list','user_save','user_delete','reports','request_update'];
 if (in_array($action, $superOnly, true)) require_super_role($isSuper);
 
 switch ($action) {
@@ -351,16 +351,66 @@ switch ($action) {
 
   /* ---------------- تقارير الفروع (المدير العام فقط) ---------------- */
   case 'reports': {
-    $rows = $p->query("SELECT b.id, b.name,
+    // فلترة حسب الفترة الزمنية: from/to بصيغة YYYY-MM-DD (اختياري)
+    $from = trim((string)($in['from'] ?? ''));
+    $to = trim((string)($in['to'] ?? ''));
+    $join = "LEFT JOIN orders o ON o.branch_id=b.id";
+    $args = [];
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+      $join = "LEFT JOIN orders o ON o.branch_id=b.id AND o.created_at >= ? AND o.created_at <= ?";
+      $args[] = $from . ' 00:00:00';
+      $args[] = $to . ' 23:59:59';
+    }
+    $st = $p->prepare("SELECT b.id, b.name,
       COUNT(o.id) orders_count,
       COALESCE(SUM(CASE WHEN o.status NOT IN('cancelled','rejected') THEN o.subtotal ELSE 0 END),0) product_sales,
       COALESCE(SUM(CASE WHEN o.status NOT IN('cancelled','rejected') THEN o.delivery_fee ELSE 0 END),0) delivery_total,
       COALESCE(SUM(CASE WHEN o.status NOT IN('cancelled','rejected') THEN o.total ELSE 0 END),0) grand_total,
       SUM(CASE WHEN o.status IN('completed','delivered') THEN 1 ELSE 0 END) completed,
       SUM(CASE WHEN o.status IN('cancelled','rejected') THEN 1 ELSE 0 END) cancelled
-      FROM branches b LEFT JOIN orders o ON o.branch_id=b.id
-      GROUP BY b.id, b.name ORDER BY b.sort, b.id")->fetchAll();
-    json_out(['ok' => true, 'reports' => $rows]);
+      FROM branches b $join
+      GROUP BY b.id, b.name ORDER BY b.sort, b.id");
+    $st->execute($args);
+    json_out(['ok' => true, 'reports' => $st->fetchAll(), 'from' => $from, 'to' => $to]);
+  }
+
+  /* ---------------- الطلبات اليومية للفروع ---------------- */
+  case 'requests_list': {
+    $sql = "SELECT r.*, b.name branch_name, a.name admin_name
+            FROM branch_requests r
+            LEFT JOIN branches b ON b.id=r.branch_id
+            LEFT JOIN admins a ON a.id=r.admin_id WHERE 1=1";
+    $args = [];
+    if (!$isSuper) { $sql .= " AND r.branch_id=?"; $args[] = (int)$myBranch; }
+    $sql .= " ORDER BY r.id DESC LIMIT 200";
+    $st = $p->prepare($sql); $st->execute($args);
+    json_out(['ok' => true, 'requests' => $st->fetchAll()]);
+  }
+
+  case 'request_save': {
+    $body = trim((string)($in['body'] ?? ''));
+    if ($body === '') json_out(['ok' => false, 'error' => 'empty'], 400);
+    $p->prepare("INSERT INTO branch_requests (branch_id,admin_id,body,status,created_at) VALUES (?,?,?, 'open', ?)")
+      ->execute([$myBranch !== null ? (int)$myBranch : null, (int)$admin['id'], $body, now_str()]);
+    json_out(['ok' => true]);
+  }
+
+  case 'request_update': {
+    $id = (int)($in['id'] ?? 0);
+    $status = ($in['status'] ?? '') === 'done' ? 'done' : 'open';
+    $p->prepare("UPDATE branch_requests SET status=? WHERE id=?")->execute([$status, $id]);
+    json_out(['ok' => true]);
+  }
+
+  case 'request_delete': {
+    $id = (int)($in['id'] ?? 0);
+    // مدير الفرع يحذف طلبات فرعه فقط
+    if (!$isSuper) {
+      $rq = $p->prepare("SELECT branch_id FROM branch_requests WHERE id=?"); $rq->execute([$id]); $rq = $rq->fetch();
+      if (!$rq || (int)$rq['branch_id'] !== (int)$myBranch) json_out(['ok' => false, 'error' => 'forbidden'], 403);
+    }
+    $p->prepare("DELETE FROM branch_requests WHERE id=?")->execute([$id]);
+    json_out(['ok' => true]);
   }
 
   default:

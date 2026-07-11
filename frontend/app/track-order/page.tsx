@@ -1,24 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import OrderStatusTimeline from "@/components/shared/OrderStatusTimeline";
-import { trackOrder, type TrackOrderResult } from "@/lib/api";
+import { trackOrder, confirmDelivery, type TrackOrderResult } from "@/lib/api";
 
-// تحويل حالة الطلب في قاعدة البيانات إلى موضع على شريط التتبع
+// تحويل حالة الطلب في قاعدة البيانات إلى موضع على شريط التتبع (5 مراحل)
 const STATUS_INDEX: Record<string, number> = {
   new: 0,
   confirmed: 1,
   preparing: 2,
-  ready: 3,
-  out_for_delivery: 4,
-  delivering: 4,
-  delivered: 5,
-  completed: 5,
+  ready: 2,
+  out_for_delivery: 3,
+  delivering: 3,
+  delivered: 4,
+  completed: 4,
 };
 const STATUS_LABEL: Record<string, string> = {
   new: "تم استلام الطلب",
-  confirmed: "الطلب قيد التأكيد",
+  confirmed: "تم تأكيد الطلب",
   preparing: "الطلب قيد التحضير",
-  ready: "الطلب جاهز",
+  ready: "الطلب قيد التحضير",
   out_for_delivery: "الطلب قيد التوصيل",
   delivering: "الطلب قيد التوصيل",
   delivered: "تم تسليم الطلب",
@@ -73,6 +73,15 @@ export default function TrackOrderPage() {
   const status = data?.status ?? "";
   const isCancelled = status === "cancelled" || status === "rejected";
   const currentIndex = STATUS_INDEX[status] ?? 0;
+  const canConfirm = status === "out_for_delivery";
+
+  async function onConfirmDelivery() {
+    if (!orderNo) return;
+    setLoading(true);
+    const res = await confirmDelivery(orderNo);
+    setLoading(false);
+    if (res.ok) refresh(orderNo);
+  }
 
   return (
     <div className="container-p py-6">
@@ -113,7 +122,10 @@ export default function TrackOrderPage() {
                 {STATUS_LABEL[status] ?? "تم إلغاء الطلب"}
               </div>
             ) : (
-              <OrderStatusTimeline currentIndex={currentIndex} />
+              <OrderStatusTimeline
+                currentIndex={currentIndex}
+                mode={data.mode === "pickup" ? "pickup" : "delivery"}
+              />
             )}
           </div>
           <div className="space-y-3">
@@ -126,6 +138,18 @@ export default function TrackOrderPage() {
                 value={data.mode === "pickup" ? "استلام من الفرع" : "توصيل"}
               />
             </div>
+
+            {canConfirm && (
+              <button
+                type="button"
+                className="btn-primary w-full"
+                onClick={onConfirmDelivery}
+                disabled={loading}
+              >
+                ✅ تأكيد استلام الطلب
+              </button>
+            )}
+
             <button
               type="button"
               className="btn-outline w-full"

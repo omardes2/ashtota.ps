@@ -169,6 +169,20 @@ export async function trackOrder(orderNo: string): Promise<TrackOrderResult> {
   }
 }
 
+// تأكيد استلام الطلب من الزبون (يُسمح فقط عندما يكون الطلب قيد التوصيل)
+export async function confirmDelivery(orderNo: string): Promise<{ ok: boolean; error?: string; status?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/track.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderNo, action: "deliver" }),
+    });
+    return await res.json();
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
 export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderResult> {
   try {
     const res = await fetch(`${API_BASE}/order.php`, {

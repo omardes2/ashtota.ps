@@ -22,10 +22,12 @@ const money = (n) => `${(+n % 1 ? (+n).toFixed(2) : +n)} ${CUR}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 const STATUS_LABELS = {
-  new: "جديد", confirmed: "مؤكد", preparing: "قيد التحضير", ready: "جاهز",
+  new: "تم استلام الطلب", confirmed: "مؤكد", preparing: "قيد التحضير", ready: "جاهز",
   out_for_delivery: "قيد التوصيل", delivered: "تم التسليم", completed: "مكتمل",
   cancelled: "ملغي", rejected: "مرفوض",
 };
+// حالات الطلب في التدفق المبسّط (تظهر في القائمة المنسدلة والفلاتر)
+const FLOW_STATUSES = ["new", "preparing", "out_for_delivery", "delivered", "cancelled", "rejected"];
 
 /* ------------- دخول ------------- */
 $("#loginForm").addEventListener("submit", async (e) => {
@@ -57,7 +59,7 @@ async function enterApp() {
 
 function buildNav() {
   const isSuper = ADMIN.role === "super";
-  const items = [["dashboard", "📊 لوحة القيادة"], ["orders", "🧾 الطلبات"]];
+  const items = [["dashboard", "📊 لوحة القيادة"], ["orders", "🧾 الطلبات"], ["requests", "📝 الطلبات اليومية"]];
   if (isSuper) items.push(
     ["products", "🍮 المنتجات"], ["branches", "🏬 الفروع"], ["categories", "🗂 التصنيفات"],
     ["zones", "🛵 مناطق التوصيل"], ["users", "👥 المستخدمون"], ["reports", "📈 التقارير"], ["settings", "⚙️ الإعدادات"]
@@ -75,11 +77,11 @@ $("#nav").addEventListener("click", (e) => {
 });
 $("#menuToggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 
-const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", users: "المستخدمون", reports: "التقارير", settings: "الإعدادات" };
+const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", requests: "الطلبات اليومية", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", users: "المستخدمون", reports: "التقارير", settings: "الإعدادات" };
 function navTo(view) {
   $("#viewTitle").textContent = TITLES[view] || "";
   content.innerHTML = `<div class="empty">جارِ التحميل…</div>`;
-  ({ dashboard: viewDashboard, orders: viewOrders, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, users: viewUsers, reports: viewReports, settings: viewSettings }[view] || (() => {}))();
+  ({ dashboard: viewDashboard, orders: viewOrders, requests: viewRequests, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, users: viewUsers, reports: viewReports, settings: viewSettings }[view] || (() => {}))();
 }
 
 /* ------------- لوحة القيادة ------------- */
@@ -116,7 +118,7 @@ async function viewDashboard() {
 /* ------------- الطلبات ------------- */
 let ordersFilter = "";
 async function viewOrders() {
-  const chips = ["", "new", "confirmed", "preparing", "ready", "out_for_delivery", "delivered", "completed", "cancelled"];
+  const chips = ["", ...FLOW_STATUSES];
   const r = await call("orders_list", { status: ordersFilter });
   content.innerHTML = `
     <div class="panel">
@@ -131,7 +133,7 @@ async function viewOrders() {
 function ordersTable(orders) {
   if (!orders.length) return `<div class="empty">لا توجد طلبات</div>`;
   return `<div class="table-wrap"><table>
-    <thead><tr><th>رقم</th><th>الزبون</th><th>الفرع</th><th>النوع</th><th>الإجمالي</th><th>الحالة</th><th>الوقت</th><th></th></tr></thead>
+    <thead><tr><th>رقم</th><th>الزبون</th><th>الفرع</th><th>النوع</th><th>الإجمالي</th><th>الحالة</th><th>الوقت</th><th>إجراءات</th></tr></thead>
     <tbody>${orders.map(o => `
       <tr>
         <td><b>${esc(o.order_no)}</b></td>
@@ -141,8 +143,30 @@ function ordersTable(orders) {
         <td><b>${money(o.total)}</b></td>
         <td><span class="badge b-${o.status}">${STATUS_LABELS[o.status] || o.status}</span></td>
         <td class="muted">${esc((o.created_at || "").slice(5, 16))}</td>
-        <td><button class="btn-ghost btn-sm" onclick="openOrder(${o.id})">تفاصيل</button></td>
+        <td><div class="ord-actions">
+          <button class="btn-ghost btn-sm" onclick="openOrder(${o.id})">تفاصيل</button>
+          <button class="btn-ghost btn-sm" onclick="printOrder(${o.id})">🖨 طباعة</button>
+          ${o.status === "new" ? `<button class="btn-primary btn-sm" onclick="quickStatus(${o.id},'preparing')">✅ تأكيد</button>` : ""}
+          <select class="ord-status-sel" onchange="quickStatus(${o.id}, this.value)">
+            ${FLOW_STATUSES.map(s => `<option value="${s}" ${o.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}
+            ${FLOW_STATUSES.includes(o.status) ? "" : `<option value="${o.status}" selected>${STATUS_LABELS[o.status] || o.status}</option>`}
+          </select>
+        </div></td>
       </tr>`).join("")}</tbody></table></div>`;
+}
+
+// طباعة سريعة من قائمة الطلبات (تجلب تفاصيل الطلب ثم تطبع)
+async function printOrder(id) {
+  const r = await call("order_get", { id });
+  if (!r.ok) return toast("تعذّر التحميل");
+  printReceipt(r.order, r.items);
+}
+
+// تغيير سريع لحالة الطلب من القائمة المنسدلة أو زر التأكيد
+async function quickStatus(id, status) {
+  const rr = await call("order_status", { id, status });
+  if (rr.ok) { toast("تم تحديث الحالة"); viewOrders(); }
+  else toast("خطأ");
 }
 
 async function openOrder(id) {
@@ -159,7 +183,7 @@ async function openOrder(id) {
       <tbody>${items.map(it => `<tr><td>${esc(it.name)}${it.options_text ? `<br><span class="muted">${esc(it.options_text)}</span>` : ""}${it.note ? `<br><span class="muted">📝 ${esc(it.note)}</span>` : ""}</td><td>${it.qty}</td><td>${money(it.line_total)}</td></tr>`).join("")}</tbody></table></div></div>
     <div class="field"><b>المجموع الفرعي:</b> ${money(o.subtotal)} · <b>التوصيل:</b> ${money(o.delivery_fee)} · <b>الإجمالي:</b> ${money(o.total)}</div>
     <div class="field"><label>تغيير الحالة</label>
-      <select id="ordStatus">${Object.keys(STATUS_LABELS).map(s => `<option value="${s}" ${o.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
+      <select id="ordStatus">${FLOW_STATUSES.map(s => `<option value="${s}" ${o.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}${FLOW_STATUSES.includes(o.status) ? "" : `<option value="${o.status}" selected>${STATUS_LABELS[o.status] || o.status}</option>`}</select>
     </div>
   `, [
     { label: "🖨 طباعة الفاتورة", cls: "btn-ghost", fn: () => printReceipt(o, items) },
@@ -702,21 +726,103 @@ async function delUser(id, name) {
 }
 
 /* ------------- تقارير الفروع ------------- */
-async function viewReports() {
-  const r = await call("reports");
+let reportRange = { key: "today" }; // الفترة المختارة
+
+function ymdLocal(d) { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function reportPeriodRange(key) {
+  const now = new Date();
+  if (key === "today") { const t = ymdLocal(now); return { key, from: t, to: t }; }
+  if (key === "week") { const s = new Date(now); s.setDate(now.getDate() - 6); return { key, from: ymdLocal(s), to: ymdLocal(now) }; }
+  if (key === "month") { const s = new Date(now.getFullYear(), now.getMonth(), 1); return { key, from: ymdLocal(s), to: ymdLocal(now) }; }
+  if (key === "last_month") { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 0); return { key, from: ymdLocal(s), to: ymdLocal(e) }; }
+  return { key: "all", from: "", to: "" };
+}
+function setReportPeriod(key) { viewReports(reportPeriodRange(key)); }
+function applyCustomReport() {
+  const f = $("#repFrom").value, t = $("#repTo").value;
+  if (!f || !t) return toast("اختر الفترة");
+  viewReports({ key: "custom", from: f, to: t });
+}
+
+async function viewReports(range) {
+  if (range !== undefined) reportRange = range;
+  if (!reportRange.from && reportRange.key !== "all") reportRange = reportPeriodRange(reportRange.key || "today");
+  const params = reportRange.from ? { from: reportRange.from, to: reportRange.to } : {};
+  const r = await call("reports", params);
   if (!r.ok) return content.innerHTML = err(r);
+  const active = reportRange.key || "all";
+  const btn = (key, label) => `<button class="chip ${active === key ? "active" : ""}" onclick="setReportPeriod('${key}')">${label}</button>`;
+  const rows = r.reports || [];
+  const sum = (f) => rows.reduce((a, b) => a + Number(b[f] || 0), 0);
   content.innerHTML = `
     <div class="panel">
-      <div class="panel-head"><h2>📈 تقارير الفروع (الإجمالي)</h2></div>
+      <div class="panel-head"><h2>📈 تقارير الفروع</h2></div>
+      <div class="chip-row">
+        ${btn("today", "اليوم")}${btn("week", "هذا الأسبوع")}${btn("month", "هذا الشهر")}${btn("last_month", "الشهر الماضي")}${btn("all", "الكل")}
+      </div>
+      <div class="report-custom">
+        <label>من <input type="date" id="repFrom" value="${reportRange.from || ""}"></label>
+        <label>إلى <input type="date" id="repTo" value="${reportRange.to || ""}"></label>
+        <button class="btn-primary btn-sm" onclick="applyCustomReport()">تطبيق</button>
+      </div>
+      ${reportRange.from ? `<div class="muted" style="margin:6px 2px">الفترة: ${reportRange.from} ← ${reportRange.to}</div>` : `<div class="muted" style="margin:6px 2px">كل الفترات</div>`}
       <div class="table-wrap"><table>
         <thead><tr><th>الفرع</th><th>الطلبات</th><th>مبيعات المنتجات</th><th>التوصيل</th><th>الإجمالي</th><th>مكتملة</th><th>ملغاة</th></tr></thead>
-        <tbody>${r.reports.map(b => `<tr>
+        <tbody>${rows.map(b => `<tr>
           <td><b>${esc(b.name)}</b></td><td>${b.orders_count}</td>
           <td>${money(b.product_sales)}</td><td>${money(b.delivery_total)}</td>
           <td><b>${money(b.grand_total)}</b></td><td>${b.completed || 0}</td><td>${b.cancelled || 0}</td>
-        </tr>`).join("")}</tbody>
+        </tr>`).join("")}
+        <tr class="report-total"><td><b>الإجمالي</b></td><td><b>${sum("orders_count")}</b></td>
+          <td><b>${money(sum("product_sales"))}</b></td><td><b>${money(sum("delivery_total"))}</b></td>
+          <td><b>${money(sum("grand_total"))}</b></td><td><b>${sum("completed")}</b></td><td><b>${sum("cancelled")}</b></td></tr>
+        </tbody>
       </table></div></div>`;
 }
+
+/* ------------- الطلبات اليومية للفروع ------------- */
+async function viewRequests() {
+  const r = await call("requests_list");
+  if (!r.ok) return content.innerHTML = err(r);
+  const isSuper = ADMIN.role === "super";
+  const list = r.requests || [];
+  content.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>📝 الطلبات والملاحظات اليومية</h2></div>
+      ${isSuper ? "" : `
+      <form class="req-form" id="reqForm">
+        <label>اكتب طلبك أو ملاحظتك اليومية (مثال: مطلوب مياه)</label>
+        <textarea id="reqBody" placeholder="اكتب هنا…" required></textarea>
+        <button class="btn-primary" type="submit">إرسال إلى الإدارة</button>
+      </form>`}
+      <div id="reqList">${list.length ? list.map(reqCard).join("") : `<div class="empty">لا توجد طلبات</div>`}</div>
+    </div>`;
+  if (!isSuper) $("#reqForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = $("#reqBody").value.trim();
+    if (!body) return;
+    const rr = await call("request_save", { body });
+    if (rr.ok) { toast("تم الإرسال"); viewRequests(); } else toast("خطأ");
+  });
+}
+function reqCard(q) {
+  const isSuper = ADMIN.role === "super";
+  return `<div class="req-card ${q.status === "done" ? "done" : ""}">
+    <div>${esc(q.body)}</div>
+    <div class="req-meta">
+      <span>🏬 ${esc(q.branch_name || "-")}</span>
+      <span>👤 ${esc(q.admin_name || "-")}</span>
+      <span>🕒 ${esc((q.created_at || "").slice(0, 16))}</span>
+      <span>${q.status === "done" ? "✅ تم" : "⏳ قيد المتابعة"}</span>
+    </div>
+    <div class="row-actions" style="margin-top:8px">
+      ${isSuper && q.status !== "done" ? `<button class="btn-ghost btn-sm" onclick="markReqDone(${q.id})">وضع كمنجز</button>` : ""}
+      <button class="icon-btn danger" onclick="delReq(${q.id})">🗑</button>
+    </div>
+  </div>`;
+}
+async function markReqDone(id) { const r = await call("request_update", { id, status: "done" }); if (r.ok) { toast("تم"); viewRequests(); } else toast("خطأ"); }
+async function delReq(id) { if (!confirm("حذف الطلب؟")) return; const r = await call("request_delete", { id }); if (r.ok) { toast("تم الحذف"); viewRequests(); } else toast("خطأ"); }
 
 /* ------------- أدوات النوافذ ------------- */
 function modal(title, body, buttons = []) {

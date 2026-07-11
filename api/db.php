@@ -82,7 +82,7 @@ function ensure_migrations(): void {
     return; // النظام غير مثبّت بعد
   }
   $ver = (int)($row['sval'] ?? 0);
-  if ($ver >= 5) return;
+  if ($ver >= 6) return;
 
   // v3: أعمدة الأحجام/الإضافات/الصورة للمنتجات + تحويل مجموعات الخيارات
   if ($ver < 3) {
@@ -107,9 +107,24 @@ function ensure_migrations(): void {
     try { $p->exec("ALTER TABLE admins ADD COLUMN branch_id INTEGER"); } catch (Throwable $e) { /* موجود */ }
   }
 
+  // v6: جدول الطلبات/الملاحظات اليومية للفروع
+  if ($ver < 6) {
+    $PK = pk_type();
+    try {
+      $p->exec("CREATE TABLE IF NOT EXISTS branch_requests (
+        id $PK,
+        branch_id INTEGER,
+        admin_id INTEGER,
+        body TEXT,
+        status TEXT DEFAULT 'open',
+        created_at TEXT
+      )");
+    } catch (Throwable $e) { /* موجود */ }
+  }
+
   $up = $p->prepare(DB_DRIVER === 'mysql'
-    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','5')"
-    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','5')");
+    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','6')"
+    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','6')");
   $up->execute();
 }
 

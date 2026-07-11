@@ -1,21 +1,31 @@
 const STEPS = [
   { key: "received", label: "تم استلام الطلب", emoji: "📥" },
-  { key: "confirming", label: "الطلب قيد التأكيد", emoji: "✅" },
+  { key: "confirmed", label: "تم تأكيد الطلب", emoji: "✅" },
   { key: "preparing", label: "الطلب قيد التحضير", emoji: "👨‍🍳" },
-  { key: "ready", label: "الطلب جاهز", emoji: "📦" },
   { key: "delivering", label: "الطلب قيد التوصيل", emoji: "🛵" },
   { key: "delivered", label: "تم تسليم الطلب", emoji: "🎉" },
 ];
 
-export default function OrderStatusTimeline({ currentIndex = 2 }: { currentIndex?: number }) {
+export default function OrderStatusTimeline({
+  currentIndex = 0,
+  mode = "delivery",
+}: {
+  currentIndex?: number;
+  mode?: "delivery" | "pickup";
+}) {
+  const steps = STEPS.map((s) =>
+    s.key === "delivering" && mode === "pickup"
+      ? { ...s, label: "الطلب جاهز للاستلام", emoji: "📦" }
+      : s
+  );
   return (
     <ol className="relative space-y-6 pr-6">
-      {STEPS.map((step, i) => {
+      {steps.map((step, i) => {
         const done = i < currentIndex;
         const active = i === currentIndex;
         return (
           <li key={step.key} className="relative">
-            {i < STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <span
                 className={`absolute right-[13px] top-8 h-full w-0.5 ${
                   done ? "bg-brand" : "bg-gray-200"
