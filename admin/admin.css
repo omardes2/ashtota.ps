@@ -100,6 +100,31 @@ tr:last-child td{border-bottom:none}
 .toast.show{opacity:1;transform:translateY(0)}
 .empty{text-align:center;padding:40px;color:var(--muted)}
 
+/* ---------- طباعة الفاتورة (طابعة حرارية 10 سم) ---------- */
+.print-area{display:none}
+.rc{width:100%;direction:rtl;color:#000;font-family:var(--font);font-size:12px;line-height:1.55}
+.rc-brand{text-align:center;font-weight:900;font-size:19px}
+.rc-title{text-align:center;font-weight:700;margin-bottom:2px}
+.rc-sep{border-top:1px dashed #000;margin:6px 0}
+.rc-line{display:flex;justify-content:space-between;gap:8px}
+.rc-line.total{font-size:15px;font-weight:900;margin-top:2px}
+.rc-addr{font-size:11px;margin-top:2px}
+.rc-head{font-size:11px;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:2px;color:#000}
+.rc-item{margin:5px 0}
+.rc-item-top{display:flex;justify-content:space-between;gap:8px;font-weight:700}
+.rc-item-name{flex:1;word-break:break-word}
+.rc-item-price{white-space:nowrap}
+.rc .opt{font-size:10px;color:#333}
+.rc-foot{text-align:center;font-weight:700;margin-top:6px}
+.rc-thanks{text-align:center;font-size:11px;margin-top:2px}
+
+@media print{
+  body>*:not(.print-area){display:none!important}
+  .print-area{display:block}
+  html,body{background:#fff;margin:0}
+  @page{size:100mm auto;margin:4mm}
+}
+
 @media(max-width:760px){
   .sidebar{position:fixed;inset-inline-start:0;top:0;z-index:50;transform:translateX(-105%);transition:.25s;box-shadow:var(--shadow)}
   html[dir=rtl] .sidebar{transform:translateX(105%)}

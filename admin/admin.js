@@ -146,12 +146,53 @@ async function openOrder(id) {
       <select id="ordStatus">${Object.keys(STATUS_LABELS).map(s => `<option value="${s}" ${o.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
     </div>
   `, [
+    { label: "🖨 طباعة الفاتورة", cls: "btn-ghost", fn: () => printReceipt(o, items) },
     { label: "حفظ الحالة", cls: "btn-primary", fn: async () => {
       const st = $("#ordStatus").value;
       const rr = await call("order_status", { id, status: st });
       if (rr.ok) { toast("تم تحديث الحالة"); closeModal(); viewOrders(); } else toast("خطأ");
     } },
   ]);
+}
+
+/* طباعة فاتورة بمقاس طابعة حرارية 10 سم */
+function printReceipt(o, items) {
+  const brand = (META.settings && META.settings.brand_name) || "قشطوطة بلبن";
+  const rows = items.map(it => `
+    <div class="rc-item">
+      <div class="rc-item-top">
+        <span class="rc-item-name">${esc(it.name)} ×${it.qty}</span>
+        <span class="rc-item-price">${money(it.line_total)}</span>
+      </div>
+      ${it.options_text ? `<div class="opt">${esc(it.options_text)}</div>` : ""}
+      ${it.note ? `<div class="opt">📝 ${esc(it.note)}</div>` : ""}
+    </div>`).join("");
+  $("#printArea").innerHTML = `
+    <div class="rc">
+      <div class="rc-brand">${esc(brand)}</div>
+      <div class="rc-title">فاتورة طلب</div>
+      <div class="rc-sep"></div>
+      <div class="rc-line"><span>رقم الطلب</span><b>${esc(o.order_no)}</b></div>
+      <div class="rc-line"><span>التاريخ</span><span>${esc((o.created_at || "").slice(0, 16))}</span></div>
+      <div class="rc-line"><span>الفرع</span><span>${esc(o.branch_name || "")}</span></div>
+      <div class="rc-line"><span>الزبون</span><span>${esc(o.customer_name)}</span></div>
+      <div class="rc-line"><span>الهاتف</span><span>${esc(o.phone)}</span></div>
+      <div class="rc-line"><span>الاستلام</span><span>${o.mode === "delivery" ? "توصيل" : "استلام من الفرع"}</span></div>
+      ${o.mode === "delivery" ? `<div class="rc-line"><span>المنطقة</span><span>${esc(o.zone_name || "")}</span></div><div class="rc-addr">📍 ${esc(o.address || "")}</div>` : ""}
+      <div class="rc-sep"></div>
+      <div class="rc-item-top rc-head"><span>الصنف والكمية</span><span>السعر</span></div>
+      ${rows}
+      <div class="rc-sep"></div>
+      <div class="rc-line"><span>المجموع الفرعي</span><span>${money(o.subtotal)}</span></div>
+      <div class="rc-line"><span>التوصيل</span><span>${o.mode === "pickup" ? "-" : money(o.delivery_fee)}</span></div>
+      <div class="rc-line total"><span>الإجمالي</span><b>${money(o.total)}</b></div>
+      <div class="rc-line"><span>الدفع</span><span>نقدًا عند الاستلام</span></div>
+      ${o.note ? `<div class="rc-sep"></div><div class="rc-addr">ملاحظة: ${esc(o.note)}</div>` : ""}
+      <div class="rc-sep"></div>
+      <div class="rc-foot">شكرًا لطلبكم 🍮</div>
+      <div class="rc-thanks">${esc(brand)}</div>
+    </div>`;
+  window.print();
 }
 
 /* ------------- المنتجات ------------- */
