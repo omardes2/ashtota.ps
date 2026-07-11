@@ -10,7 +10,7 @@ import { submitOrder } from "@/lib/api";
 import OrderSummary from "@/components/cart/OrderSummary";
 import EmptyState from "@/components/shared/EmptyState";
 import { cn } from "@/lib/utils";
-import type { OrderMode, PaymentMethod } from "@/types";
+import type { OrderMode } from "@/types";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -28,15 +28,9 @@ export default function CheckoutPage() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [mode, setMode] = useState<OrderMode>("delivery");
   const [area, setArea] = useState("");
   const [street, setStreet] = useState("");
-  const [building, setBuilding] = useState("");
-  const [floor, setFloor] = useState("");
-  const [landmark, setLandmark] = useState("");
-  const [timing, setTiming] = useState<"now" | "later">("now");
-  const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [note, setNote] = useState("");
 
   if (!hydrated) return <div className="container-p py-10 text-center text-gray-400">…</div>;
@@ -73,9 +67,7 @@ export default function CheckoutPage() {
       if (!street.trim() && !area.trim()) return showToast("يرجى إكمال عنوان التوصيل", "error");
     }
 
-    const addressText = [area, street, building && `عمارة ${building}`, floor && `طابق ${floor}`, landmark]
-      .filter(Boolean)
-      .join("، ");
+    const addressText = [area, street].filter(Boolean).join("، ");
 
     setSubmitting(true);
     const res = await submitOrder({
@@ -123,10 +115,9 @@ export default function CheckoutPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Section title="معلومات العميل">
-            <Field label="الاسم" value={name} onChange={setName} placeholder="اسمك الكامل" />
             <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="الاسم" value={name} onChange={setName} placeholder="اسمك الكامل" />
               <Field label="رقم الهاتف" value={phone} onChange={setPhone} placeholder="05xxxxxxxx" type="tel" />
-              <Field label="البريد الإلكتروني (اختياري)" value={email} onChange={setEmail} placeholder="email@example.com" type="email" />
             </div>
           </Section>
 
@@ -158,26 +149,14 @@ export default function CheckoutPage() {
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="المنطقة / الحي" value={area} onChange={setArea} />
-                <Field label="الحي / الشارع" value={street} onChange={setStreet} />
-                <Field label="رقم البناية" value={building} onChange={setBuilding} />
-                <Field label="الطابق" value={floor} onChange={setFloor} />
+                <Field label="الشارع" value={street} onChange={setStreet} />
               </div>
-              <Field label="علامة مميزة" value={landmark} onChange={setLandmark} placeholder="بجانب…" />
             </Section>
           )}
 
-          <Section title="وقت الطلب">
-            <div className="grid grid-cols-2 gap-2">
-              <Seg active={timing === "now"} onClick={() => setTiming("now")}>في أقرب وقت</Seg>
-              <Seg active={timing === "later"} onClick={() => setTiming("later")}>تحديد وقت لاحق</Seg>
-            </div>
-          </Section>
-
           <Section title="طريقة الدفع">
-            <div className="space-y-2">
-              <PayOption active={payment === "cash"} onClick={() => setPayment("cash")} label="💵 الدفع نقدًا عند الاستلام" />
-              <PayOption disabled label="💳 بطاقة بنكية" soon />
-              <PayOption disabled label="📱 محفظة إلكترونية" soon />
+            <div className="rounded-xl2 border-2 border-brand bg-brand/5 p-3 text-center font-bold text-brand-dark">
+              💵 الدفع نقدًا عند الاستلام
             </div>
           </Section>
 
@@ -228,14 +207,6 @@ function Seg({ active, onClick, children }: { active: boolean; onClick: () => vo
   return (
     <button onClick={onClick} className={cn("rounded-xl2 border-2 py-3 font-extrabold transition", active ? "border-brand bg-brand/5 text-brand-dark" : "border-cloud text-gray-500")}>
       {children}
-    </button>
-  );
-}
-function PayOption({ active, onClick, label, soon, disabled }: { active?: boolean; onClick?: () => void; label: string; soon?: boolean; disabled?: boolean }) {
-  return (
-    <button onClick={onClick} disabled={disabled} className={cn("flex w-full items-center justify-between rounded-xl2 border-2 p-3 text-right font-bold transition", active ? "border-brand bg-brand/5" : "border-cloud", disabled && "opacity-60")}>
-      <span>{label}</span>
-      {soon && <span className="chip bg-accent/20 text-amber-700">قريبًا</span>}
     </button>
   );
 }

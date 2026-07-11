@@ -24,7 +24,7 @@ interface ApiMenu {
   ok: boolean;
   brand?: ApiBrand;
   branches: ApiBranch[];
-  categories: { id: number; name: string; emoji: string; order: number }[];
+  categories: { id: number; name: string; emoji: string; image: string; order: number }[];
   products: ApiProduct[];
   deliveryZones: ApiZone[];
 }
@@ -70,7 +70,7 @@ function mapMenu(api: ApiMenu): MappedMenu {
   }));
 
   const categories: Category[] = (api.categories || []).map((c) => ({
-    id: S(c.id), name: c.name, slug: S(c.id), emoji: c.emoji || "🍽️",
+    id: S(c.id), name: c.name, slug: S(c.id), emoji: c.emoji || "🍽️", image: c.image || undefined,
   }));
 
   const products: Product[] = (api.products || []).map((p) => {

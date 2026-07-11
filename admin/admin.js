@@ -47,12 +47,22 @@ async function boot() {
 async function enterApp() {
   $("#loginScreen").classList.add("hidden");
   $("#app").classList.remove("hidden");
-  $("#whoName").textContent = "👤 " + (ADMIN.name || ADMIN.username);
-  // تحميل بيانات مشتركة
-  const m = await call("meta"); if (m.ok) META = m;
+  const roleLabel = ADMIN.role === "super" ? "" : " (مدير فرع)";
+  $("#whoName").textContent = "👤 " + (ADMIN.name || ADMIN.username) + roleLabel;
+  buildNav();
   const b = await call("branches_list"); if (b.ok) BRANCHES = b.branches;
   const c = await call("categories_list"); if (c.ok) CATS = c.categories;
   navTo("dashboard");
+}
+
+function buildNav() {
+  const isSuper = ADMIN.role === "super";
+  const items = [["dashboard", "📊 لوحة القيادة"], ["orders", "🧾 الطلبات"]];
+  if (isSuper) items.push(
+    ["products", "🍮 المنتجات"], ["branches", "🏬 الفروع"], ["categories", "🗂 التصنيفات"],
+    ["zones", "🛵 مناطق التوصيل"], ["users", "👥 المستخدمون"], ["reports", "📈 التقارير"], ["settings", "⚙️ الإعدادات"]
+  );
+  $("#nav").innerHTML = items.map((it, i) => `<button data-view="${it[0]}" ${i === 0 ? 'class="active"' : ""}>${it[1]}</button>`).join("");
 }
 
 /* ------------- تنقل ------------- */
@@ -65,11 +75,11 @@ $("#nav").addEventListener("click", (e) => {
 });
 $("#menuToggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 
-const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", settings: "الإعدادات" };
+const TITLES = { dashboard: "لوحة القيادة", orders: "الطلبات", products: "المنتجات", branches: "الفروع", categories: "التصنيفات", zones: "مناطق التوصيل", users: "المستخدمون", reports: "التقارير", settings: "الإعدادات" };
 function navTo(view) {
   $("#viewTitle").textContent = TITLES[view] || "";
   content.innerHTML = `<div class="empty">جارِ التحميل…</div>`;
-  ({ dashboard: viewDashboard, orders: viewOrders, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, settings: viewSettings }[view] || (() => {}))();
+  ({ dashboard: viewDashboard, orders: viewOrders, products: viewProducts, branches: viewBranches, categories: viewCategories, zones: viewZones, users: viewUsers, reports: viewReports, settings: viewSettings }[view] || (() => {}))();
 }
 
 /* ------------- لوحة القيادة ------------- */
@@ -78,18 +88,24 @@ async function viewDashboard() {
   if (!r.ok) return content.innerHTML = err(r);
   const s = r.stats;
   const bs = s.byStatus || {};
+  const perBranch = s.perBranch || [];
   content.innerHTML = `
     <div class="stat-grid">
       <div class="stat accent"><div class="n">${s.todayCount}</div><div class="l">طلبات اليوم</div></div>
-      <div class="stat accent"><div class="n">${money(s.todaySales)}</div><div class="l">مبيعات اليوم</div></div>
+      <div class="stat accent"><div class="n">${money(s.todayProductSales)}</div><div class="l">مبيعات اليوم (بدون توصيل)</div></div>
+      <div class="stat"><div class="n">${money(s.todayDelivery)}</div><div class="l">توصيل اليوم</div></div>
       <div class="stat"><div class="n">${bs.new || 0}</div><div class="l">طلبات جديدة</div></div>
       <div class="stat"><div class="n">${bs.preparing || 0}</div><div class="l">قيد التحضير</div></div>
       <div class="stat"><div class="n">${bs.out_for_delivery || 0}</div><div class="l">قيد التوصيل</div></div>
       <div class="stat"><div class="n">${(bs.completed || 0) + (bs.delivered || 0)}</div><div class="l">مكتملة</div></div>
       <div class="stat"><div class="n">${s.totalOrders}</div><div class="l">إجمالي الطلبات</div></div>
-      <div class="stat"><div class="n">${s.products}</div><div class="l">المنتجات</div></div>
-      <div class="stat"><div class="n">${s.branches}</div><div class="l">الفروع</div></div>
     </div>
+    ${perBranch.length ? `
+    <div class="panel"><div class="panel-head"><h2>🏬 الطلبات حسب الفرع</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>الفرع</th><th>عدد الطلبات</th><th>مبيعات المنتجات</th></tr></thead>
+        <tbody>${perBranch.map(b => `<tr><td><b>${esc(b.name)}</b></td><td>${b.count}</td><td>${money(b.sales)}</td></tr>`).join("")}</tbody>
+      </table></div></div>` : ""}
     <div class="panel"><div class="panel-head"><h2>أحدث الطلبات</h2><span class="sp"></span>
       <button class="btn-ghost btn-sm" onclick="document.querySelector('[data-view=orders]').click()">عرض الكل</button></div>
       <div id="recentOrders" class="empty">…</div></div>`;
@@ -440,24 +456,42 @@ async function viewCategories() {
       <div class="table-wrap"><table>
         <thead><tr><th>التصنيف</th><th>الترتيب</th><th>الحالة</th><th></th></tr></thead>
         <tbody>${r.categories.map(c => `
-          <tr><td>${c.emoji || ""} <b>${esc(c.name)}</b></td><td>${c.sort}</td>
+          <tr><td style="display:flex;align-items:center;gap:8px">
+            ${c.image ? `<img src="${esc(c.image)}" alt="" style="width:34px;height:34px;border-radius:8px;object-fit:cover">` : `<span style="font-size:1.3rem">${c.emoji || "🍽️"}</span>`}
+            <b>${esc(c.name)}</b></td><td>${c.sort}</td>
           <td>${+c.active ? '<span class="dot-open">مفعّل</span>' : '<span class="dot-closed">مخفي</span>'}</td>
           <td><div class="row-actions"><button class="icon-btn" onclick='editCat(${c.id})'>✏️</button>
           <button class="icon-btn danger" onclick="delCat(${c.id},'${esc(c.name)}')">🗑</button></div></td></tr>`).join("")}
         </tbody></table></div></div>`;
 }
+let catImageUrl = "";
+async function uploadCatImg() {
+  const file = $("#cFile").files[0];
+  if (!file) return toast("اختر صورة أولًا");
+  toast("جارٍ الرفع…");
+  const r = await uploadImage(file);
+  if (r.ok) { catImageUrl = r.url; $("#cImgPreview").innerHTML = `<img src="${esc(r.url)}" style="width:80px;height:80px;object-fit:cover;border-radius:10px">`; toast("تم رفع الصورة ✓"); }
+  else toast("فشل الرفع");
+}
+function removeCatImg() { catImageUrl = ""; $("#cImgPreview").innerHTML = '<span class="muted">لا توجد صورة</span>'; }
 function editCat(id) {
   const c = id ? CATS.find(x => +x.id === id) : null;
+  catImageUrl = c?.image || "";
   modal(id ? "تعديل تصنيف" : "تصنيف جديد", `
-    <div class="grid2">
-      <div class="field"><label>الاسم</label><input id="cName" value="${esc(c?.name || "")}"></div>
-      <div class="field"><label>الرمز</label><input id="cEmoji" value="${esc(c?.emoji || "🍽️")}"></div>
+    <div class="field"><label>الاسم</label><input id="cName" value="${esc(c?.name || "")}"></div>
+    <div class="field"><label>صورة التصنيف</label>
+      <div id="cImgPreview" style="margin-bottom:8px">${c?.image ? `<img src="${esc(c.image)}" style="width:80px;height:80px;object-fit:cover;border-radius:10px">` : '<span class="muted">لا توجد صورة</span>'}</div>
+      <input type="file" id="cFile" accept="image/*">
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="button" class="btn-ghost btn-sm" onclick="uploadCatImg()">⬆ رفع الصورة</button>
+        <button type="button" class="btn-sm" style="background:#fde8e6;color:var(--red)" onclick="removeCatImg()">إزالة</button>
+      </div>
     </div>
     <div class="field"><label>الترتيب</label><input id="cSort" type="number" value="${c?.sort ?? 0}"></div>
     <label class="check"><input type="checkbox" id="cActive" ${!c || +c.active ? "checked" : ""}> ظاهر</label>
   `, [
     { label: "حفظ", cls: "btn-primary", fn: async () => {
-      const category = { id: id || 0, name: $("#cName").value.trim(), emoji: $("#cEmoji").value.trim(), sort: +$("#cSort").value || 0, active: $("#cActive").checked };
+      const category = { id: id || 0, name: $("#cName").value.trim(), emoji: c?.emoji || "🍽️", image: catImageUrl, sort: +$("#cSort").value || 0, active: $("#cActive").checked };
       if (!category.name) return toast("أدخل الاسم");
       const rr = await call("category_save", { category });
       if (rr.ok) { toast("تم الحفظ"); closeModal(); const cc = await call("categories_list"); if (cc.ok) CATS = cc.categories; viewCategories(); } else toast("خطأ");
@@ -605,6 +639,83 @@ async function changePass() {
   const r = await call("change_password", { new: np });
   toast(r.ok ? "تم تغيير كلمة المرور" : "خطأ");
   if (r.ok) $("#npass").value = "";
+}
+
+/* ------------- المستخدمون (مدراء الفروع) ------------- */
+let USERS_CACHE = [];
+async function viewUsers() {
+  const r = await call("users_list");
+  if (!r.ok) return content.innerHTML = err(r);
+  USERS_CACHE = r.users;
+  content.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>المستخدمون (${r.users.length})</h2><span class="sp"></span>
+        <button class="btn-primary btn-sm" onclick="editUser()">＋ مستخدم جديد</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>المستخدم</th><th>الدور</th><th>الفرع</th><th>الحالة</th><th></th></tr></thead>
+        <tbody>${r.users.map(u => `
+          <tr>
+            <td><b>${esc(u.username)}</b>${u.name ? `<br><span class="muted">${esc(u.name)}</span>` : ""}</td>
+            <td>${u.role === "super" ? "مدير عام" : "مدير فرع"}</td>
+            <td>${esc(u.branch_name || "—")}</td>
+            <td>${+u.active ? '<span class="dot-open">مفعّل</span>' : '<span class="dot-closed">موقوف</span>'}</td>
+            <td><div class="row-actions">
+              <button class="icon-btn" onclick='editUser(${u.id})'>✏️</button>
+              <button class="icon-btn danger" onclick="delUser(${u.id},'${esc(u.username)}')">🗑</button>
+            </div></td>
+          </tr>`).join("")}</tbody></table></div></div>`;
+}
+function editUser(id) {
+  const u = id ? USERS_CACHE.find(x => +x.id === id) : null;
+  modal(id ? "تعديل مستخدم" : "مستخدم جديد", `
+    <div class="grid2">
+      <div class="field"><label>اسم المستخدم</label><input id="uUser" value="${esc(u?.username || "")}"></div>
+      <div class="field"><label>الاسم</label><input id="uName" value="${esc(u?.name || "")}"></div>
+    </div>
+    <div class="field"><label>كلمة المرور ${id ? "(اتركها فارغة لعدم التغيير)" : ""}</label><input id="uPass" type="text" placeholder="6 أحرف على الأقل"></div>
+    <div class="field"><label>الدور</label>
+      <select id="uRole" onchange="document.getElementById('uBranchWrap').style.display=this.value==='super'?'none':'block'">
+        <option value="branch" ${u && u.role === "branch" ? "selected" : ""}>مدير فرع (طلبات فرعه فقط)</option>
+        <option value="super" ${u && u.role === "super" ? "selected" : ""}>مدير عام (كل الفروع)</option>
+      </select>
+    </div>
+    <div class="field" id="uBranchWrap" style="display:${u && u.role === "super" ? "none" : "block"}"><label>الفرع</label>
+      <select id="uBranch">${BRANCHES.map(b => `<option value="${b.id}" ${u && +u.branch_id === +b.id ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select>
+    </div>
+    <label class="check"><input type="checkbox" id="uActive" ${!u || +u.active ? "checked" : ""}> مفعّل</label>
+  `, [
+    { label: "حفظ", cls: "btn-primary", fn: async () => {
+      const user = { id: id || 0, username: $("#uUser").value.trim(), name: $("#uName").value.trim(),
+        password: $("#uPass").value, role: $("#uRole").value, branch_id: +$("#uBranch").value, active: $("#uActive").checked };
+      if (!user.username) return toast("أدخل اسم المستخدم");
+      const rr = await call("user_save", { user });
+      if (rr.ok) { toast("تم الحفظ"); closeModal(); viewUsers(); }
+      else { const e = { username_taken: "اسم المستخدم مستخدم مسبقًا", weak: "كلمة المرور 6 أحرف على الأقل", missing_branch: "اختر الفرع", missing_username: "أدخل اسم المستخدم" }; toast(e[rr.error] || "خطأ"); }
+    } },
+  ]);
+}
+async function delUser(id, name) {
+  if (!confirm(`حذف المستخدم "${name}"؟`)) return;
+  const r = await call("user_delete", { id });
+  if (r.ok) { toast("تم الحذف"); viewUsers(); }
+  else toast(r.error === "cant_delete_self" ? "لا يمكن حذف حسابك الحالي" : "خطأ");
+}
+
+/* ------------- تقارير الفروع ------------- */
+async function viewReports() {
+  const r = await call("reports");
+  if (!r.ok) return content.innerHTML = err(r);
+  content.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>📈 تقارير الفروع (الإجمالي)</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>الفرع</th><th>الطلبات</th><th>مبيعات المنتجات</th><th>التوصيل</th><th>الإجمالي</th><th>مكتملة</th><th>ملغاة</th></tr></thead>
+        <tbody>${r.reports.map(b => `<tr>
+          <td><b>${esc(b.name)}</b></td><td>${b.orders_count}</td>
+          <td>${money(b.product_sales)}</td><td>${money(b.delivery_total)}</td>
+          <td><b>${money(b.grand_total)}</b></td><td>${b.completed || 0}</td><td>${b.cancelled || 0}</td>
+        </tr>`).join("")}</tbody>
+      </table></div></div>`;
 }
 
 /* ------------- أدوات النوافذ ------------- */

@@ -19,6 +19,7 @@ function install_schema(): void {
     password_hash TEXT NOT NULL,
     name TEXT,
     role TEXT DEFAULT 'admin',
+    branch_id INTEGER,
     active INTEGER DEFAULT 1,
     created_at TEXT
   )");
@@ -41,6 +42,7 @@ function install_schema(): void {
     id $PK,
     name TEXT NOT NULL,
     emoji TEXT,
+    image TEXT,
     sort INTEGER DEFAULT 0,
     active INTEGER DEFAULT 1
   )");
@@ -218,7 +220,7 @@ function seed_data(): void {
   foreach ($zones as $z) { $zStmt->execute([$bIds[$z[0]],$z[1],$z[2],$z[3],$z[4]]); }
 
   // تثبيت أحدث نسخة للمخطط (تثبيت جديد لا يحتاج ترحيلًا)
-  $set->execute(['schema_version', '3']);
+  $set->execute(['schema_version', '5']);
 }
 
 /**

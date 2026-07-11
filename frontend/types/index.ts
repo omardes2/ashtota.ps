@@ -18,6 +18,7 @@ export interface Category {
   name: string;
   slug: string;
   emoji: string;
+  image?: string;
 }
 
 export interface ProductSize {

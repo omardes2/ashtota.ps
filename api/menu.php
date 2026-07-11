@@ -45,7 +45,7 @@ foreach ($p->query("SELECT * FROM branches WHERE active=1 ORDER BY sort, id") as
 // التصنيفات
 $categories = [];
 foreach ($p->query("SELECT * FROM categories WHERE active=1 ORDER BY sort, id") as $c) {
-  $categories[] = ['id' => (int)$c['id'], 'name' => $c['name'], 'emoji' => $c['emoji'], 'order' => (int)$c['sort']];
+  $categories[] = ['id' => (int)$c['id'], 'name' => $c['name'], 'emoji' => $c['emoji'], 'image' => $c['image'] ?? '', 'order' => (int)$c['sort']];
 }
 
 // المنتجات + الأحجام والإضافات لكل منتج

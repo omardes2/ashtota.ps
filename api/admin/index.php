@@ -25,7 +25,10 @@ if ($action === 'login') {
     json_out(['ok' => false, 'error' => 'bad_credentials'], 401);
   }
   start_admin_session();
-  $_SESSION['admin'] = ['id' => (int)$a['id'], 'username' => $a['username'], 'name' => $a['name'], 'role' => $a['role']];
+  $_SESSION['admin'] = [
+    'id' => (int)$a['id'], 'username' => $a['username'], 'name' => $a['name'],
+    'role' => $a['role'], 'branchId' => $a['branch_id'] !== null ? (int)$a['branch_id'] : null,
+  ];
   json_out(['ok' => true, 'admin' => $_SESSION['admin'], 'csrf' => csrf_token()]);
 }
 
@@ -44,35 +47,64 @@ if ($action === 'me') {
 
 /* كل ما بعده يتطلب تسجيل دخول */
 $admin = require_admin();
+$isSuper = ($admin['role'] ?? '') === 'super';
+$myBranch = $admin['branchId'] ?? null;
+
+// مدير الفرع يرى طلبات فرعه فقط؛ المدير العام يرى الكل
+function require_super_role(bool $isSuper): void {
+  if (!$isSuper) json_out(['ok' => false, 'error' => 'forbidden'], 403);
+}
 
 /* التعديلات تتطلب CSRF */
 $mutations = ['order_status','product_save','product_delete','branch_save','branch_delete',
-  'category_save','category_delete','zone_save','zone_delete','settings_save','change_password'];
+  'category_save','category_delete','zone_save','zone_delete','settings_save','change_password',
+  'user_save','user_delete'];
 if (in_array($action, $mutations, true)) check_csrf();
+
+/* إجراءات إدارية للمدير العام فقط */
+$superOnly = ['product_save','product_delete','branch_save','branch_delete','category_save',
+  'category_delete','zone_save','zone_delete','settings_save','users_list','user_save','user_delete','reports'];
+if (in_array($action, $superOnly, true)) require_super_role($isSuper);
 
 switch ($action) {
 
   /* ---------------- لوحة الإحصائيات ---------------- */
   case 'dashboard': {
     $today = date('Y-m-d');
+    // شرط تخصيص الفرع لمدير الفرع
+    $bw = $isSuper ? '' : ' AND branch_id=' . (int)$myBranch;
     $q = fn($sql, $args = []) => (function () use ($p, $sql, $args) { $s = $p->prepare($sql); $s->execute($args); return $s->fetch(); })();
-    $todayCount = (int)$q("SELECT COUNT(*) c FROM orders WHERE substr(created_at,1,10)=?", [$today])['c'];
-    $todaySales = (float)($q("SELECT COALESCE(SUM(total),0) s FROM orders WHERE substr(created_at,1,10)=? AND status NOT IN('cancelled','rejected')", [$today])['s']);
+    $notCancelled = "status NOT IN('cancelled','rejected')";
+    $todayCount = (int)$q("SELECT COUNT(*) c FROM orders WHERE substr(created_at,1,10)=?$bw", [$today])['c'];
+    // مبيعات المنتجات (بدون التوصيل) + التوصيل منفصل
+    $todayProductSales = (float)$q("SELECT COALESCE(SUM(subtotal),0) s FROM orders WHERE substr(created_at,1,10)=? AND $notCancelled$bw", [$today])['s'];
+    $todayDelivery = (float)$q("SELECT COALESCE(SUM(delivery_fee),0) s FROM orders WHERE substr(created_at,1,10)=? AND $notCancelled$bw", [$today])['s'];
     $byStatus = [];
-    $st = $p->query("SELECT status, COUNT(*) c FROM orders GROUP BY status");
-    foreach ($st as $r) $byStatus[$r['status']] = (int)$r['c'];
-    $totalOrders = (int)$p->query("SELECT COUNT(*) c FROM orders")->fetch()['c'];
+    $bsSql = "SELECT status, COUNT(*) c FROM orders" . ($isSuper ? '' : ' WHERE branch_id=' . (int)$myBranch) . " GROUP BY status";
+    foreach ($p->query($bsSql) as $r) $byStatus[$r['status']] = (int)$r['c'];
+    $totalOrders = (int)$p->query("SELECT COUNT(*) c FROM orders" . ($isSuper ? '' : ' WHERE branch_id=' . (int)$myBranch))->fetch()['c'];
     $products = (int)$p->query("SELECT COUNT(*) c FROM products")->fetch()['c'];
     $branches = (int)$p->query("SELECT COUNT(*) c FROM branches")->fetch()['c'];
-    json_out(['ok' => true, 'stats' => compact('todayCount','todaySales','byStatus','totalOrders','products','branches')]);
+
+    // عدد الطلبات لكل فرع (للمدير العام فقط)
+    $perBranch = [];
+    if ($isSuper) {
+      $pb = $p->query("SELECT b.id, b.name, COUNT(o.id) cnt,
+        COALESCE(SUM(CASE WHEN o.status NOT IN('cancelled','rejected') THEN o.subtotal ELSE 0 END),0) sales
+        FROM branches b LEFT JOIN orders o ON o.branch_id=b.id GROUP BY b.id, b.name ORDER BY b.sort, b.id");
+      foreach ($pb as $r) $perBranch[] = ['name' => $r['name'], 'count' => (int)$r['cnt'], 'sales' => (float)$r['sales']];
+    }
+
+    json_out(['ok' => true, 'stats' => compact('todayCount','todayProductSales','todayDelivery','byStatus','totalOrders','products','branches','perBranch'), 'isSuper' => $isSuper]);
   }
 
   /* ---------------- الطلبات ---------------- */
   case 'orders_list': {
     $status = $in['status'] ?? '';
-    $sql = "SELECT o.*, b.name branch_name FROM orders o LEFT JOIN branches b ON b.id=o.branch_id";
+    $sql = "SELECT o.*, b.name branch_name FROM orders o LEFT JOIN branches b ON b.id=o.branch_id WHERE 1=1";
     $args = [];
-    if ($status !== '') { $sql .= " WHERE o.status=?"; $args[] = $status; }
+    if (!$isSuper) { $sql .= " AND o.branch_id=?"; $args[] = (int)$myBranch; }
+    if ($status !== '') { $sql .= " AND o.status=?"; $args[] = $status; }
     $sql .= " ORDER BY o.id DESC LIMIT 200";
     $st = $p->prepare($sql); $st->execute($args);
     json_out(['ok' => true, 'orders' => $st->fetchAll()]);
@@ -84,6 +116,7 @@ switch ($action) {
     $st->execute([$id]);
     $order = $st->fetch();
     if (!$order) json_out(['ok' => false, 'error' => 'not_found'], 404);
+    if (!$isSuper && (int)$order['branch_id'] !== (int)$myBranch) json_out(['ok' => false, 'error' => 'forbidden'], 403);
     $it = $p->prepare("SELECT * FROM order_items WHERE order_id=?");
     $it->execute([$id]);
     json_out(['ok' => true, 'order' => $order, 'items' => $it->fetchAll()]);
@@ -94,6 +127,11 @@ switch ($action) {
     $status = $in['status'] ?? '';
     $allowed = ['new','confirmed','preparing','ready','out_for_delivery','delivered','completed','cancelled','rejected'];
     if (!in_array($status, $allowed, true)) json_out(['ok' => false, 'error' => 'bad_status'], 400);
+    // مدير الفرع يعدّل طلبات فرعه فقط
+    if (!$isSuper) {
+      $ord = $p->prepare("SELECT branch_id FROM orders WHERE id=?"); $ord->execute([$id]); $ord = $ord->fetch();
+      if (!$ord || (int)$ord['branch_id'] !== (int)$myBranch) json_out(['ok' => false, 'error' => 'forbidden'], 403);
+    }
     $p->prepare("UPDATE orders SET status=? WHERE id=?")->execute([$status, $id]);
     json_out(['ok' => true]);
   }
@@ -206,9 +244,9 @@ switch ($action) {
   case 'category_save': {
     $d = $in['category'] ?? [];
     $id = (int)($d['id'] ?? 0);
-    $f = [$d['name'] ?? '', $d['emoji'] ?? '🍽️', (int)($d['sort'] ?? 0), !empty($d['active']) ? 1 : 0];
-    if ($id) { $f[] = $id; $p->prepare("UPDATE categories SET name=?,emoji=?,sort=?,active=? WHERE id=?")->execute($f); }
-    else { $p->prepare("INSERT INTO categories (name,emoji,sort,active) VALUES (?,?,?,?)")->execute($f); $id = (int)$p->lastInsertId(); }
+    $f = [$d['name'] ?? '', $d['emoji'] ?? '🍽️', trim((string)($d['image'] ?? '')), (int)($d['sort'] ?? 0), !empty($d['active']) ? 1 : 0];
+    if ($id) { $f[] = $id; $p->prepare("UPDATE categories SET name=?,emoji=?,image=?,sort=?,active=? WHERE id=?")->execute($f); }
+    else { $p->prepare("INSERT INTO categories (name,emoji,image,sort,active) VALUES (?,?,?,?,?)")->execute($f); $id = (int)$p->lastInsertId(); }
     json_out(['ok' => true, 'id' => $id]);
   }
 
@@ -262,6 +300,67 @@ switch ($action) {
     if (strlen($new) < 6) json_out(['ok' => false, 'error' => 'weak'], 400);
     $p->prepare("UPDATE admins SET password_hash=? WHERE id=?")->execute([password_hash($new, PASSWORD_DEFAULT), $admin['id']]);
     json_out(['ok' => true]);
+  }
+
+  /* ---------------- المستخدمون (المدير العام فقط) ---------------- */
+  case 'users_list': {
+    $rows = $p->query("SELECT u.id, u.username, u.name, u.role, u.branch_id, u.active, b.name branch_name
+      FROM admins u LEFT JOIN branches b ON b.id=u.branch_id ORDER BY u.id")->fetchAll();
+    json_out(['ok' => true, 'users' => $rows]);
+  }
+
+  case 'user_save': {
+    $d = $in['user'] ?? [];
+    $id = (int)($d['id'] ?? 0);
+    $username = trim((string)($d['username'] ?? ''));
+    $name = trim((string)($d['name'] ?? ''));
+    $role = ($d['role'] ?? 'branch') === 'super' ? 'super' : 'branch';
+    $branchId = $role === 'super' ? null : ((int)($d['branch_id'] ?? 0) ?: null);
+    $active = !empty($d['active']) ? 1 : 0;
+    $pass = (string)($d['password'] ?? '');
+    if ($username === '') json_out(['ok' => false, 'error' => 'missing_username'], 400);
+    if ($role === 'branch' && !$branchId) json_out(['ok' => false, 'error' => 'missing_branch'], 400);
+
+    // منع تكرار اسم المستخدم
+    $chk = $p->prepare("SELECT id FROM admins WHERE username=? AND id<>?");
+    $chk->execute([$username, $id]);
+    if ($chk->fetch()) json_out(['ok' => false, 'error' => 'username_taken'], 400);
+
+    if ($id) {
+      $p->prepare("UPDATE admins SET username=?, name=?, role=?, branch_id=?, active=? WHERE id=?")
+        ->execute([$username, $name, $role, $branchId, $active, $id]);
+      if ($pass !== '') {
+        if (strlen($pass) < 6) json_out(['ok' => false, 'error' => 'weak'], 400);
+        $p->prepare("UPDATE admins SET password_hash=? WHERE id=?")->execute([password_hash($pass, PASSWORD_DEFAULT), $id]);
+      }
+    } else {
+      if (strlen($pass) < 6) json_out(['ok' => false, 'error' => 'weak'], 400);
+      $p->prepare("INSERT INTO admins (username, password_hash, name, role, branch_id, active, created_at) VALUES (?,?,?,?,?,?,?)")
+        ->execute([$username, password_hash($pass, PASSWORD_DEFAULT), $name, $role, $branchId, $active, now_str()]);
+      $id = (int)$p->lastInsertId();
+    }
+    json_out(['ok' => true, 'id' => $id]);
+  }
+
+  case 'user_delete': {
+    $id = (int)($in['id'] ?? 0);
+    if ($id === (int)$admin['id']) json_out(['ok' => false, 'error' => 'cant_delete_self'], 400);
+    $p->prepare("DELETE FROM admins WHERE id=?")->execute([$id]);
+    json_out(['ok' => true]);
+  }
+
+  /* ---------------- تقارير الفروع (المدير العام فقط) ---------------- */
+  case 'reports': {
+    $rows = $p->query("SELECT b.id, b.name,
+      COUNT(o.id) orders_count,
+      COALESCE(SUM(CASE WHEN o.status NOT IN('cancelled','rejected') THEN o.subtotal ELSE 0 END),0) product_sales,
+      COALESCE(SUM(CASE WHEN o.status NOT IN('cancelled','rejected') THEN o.delivery_fee ELSE 0 END),0) delivery_total,
+      COALESCE(SUM(CASE WHEN o.status NOT IN('cancelled','rejected') THEN o.total ELSE 0 END),0) grand_total,
+      SUM(CASE WHEN o.status IN('completed','delivered') THEN 1 ELSE 0 END) completed,
+      SUM(CASE WHEN o.status IN('cancelled','rejected') THEN 1 ELSE 0 END) cancelled
+      FROM branches b LEFT JOIN orders o ON o.branch_id=b.id
+      GROUP BY b.id, b.name ORDER BY b.sort, b.id")->fetchAll();
+    json_out(['ok' => true, 'reports' => $rows]);
   }
 
   default:

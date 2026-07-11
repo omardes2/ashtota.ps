@@ -99,7 +99,13 @@ if ($mode === 'delivery') {
 $total = $subtotal + $fee;
 $pps = (float)(db_setting('points_per_shekel') ?? 1);
 $points = (int)round($subtotal * $pps);
-$orderNo = 'Q' . substr((string)time(), -6) . random_int(10, 99);
+
+// رقم الطلب: سنة(رقمان) + شهر + يوم + تسلسل يومي يبدأ من 100
+$today = date('Y-m-d');
+$cntStmt = $p->prepare("SELECT COUNT(*) c FROM orders WHERE substr(created_at,1,10)=?");
+$cntStmt->execute([$today]);
+$seq = 100 + (int)$cntStmt->fetch()['c'];
+$orderNo = date('y') . (int)date('n') . date('d') . $seq;
 
 // حفظ الطلب
 $p->prepare("INSERT INTO orders (order_no,branch_id,customer_name,phone,mode,zone_id,address,payment,note,subtotal,delivery_fee,total,points,status,created_at)

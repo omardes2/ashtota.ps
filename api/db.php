@@ -82,22 +82,34 @@ function ensure_migrations(): void {
     return; // النظام غير مثبّت بعد
   }
   $ver = (int)($row['sval'] ?? 0);
-  if ($ver >= 3) return;
+  if ($ver >= 5) return;
 
-  foreach ([
-    "ALTER TABLE products ADD COLUMN image TEXT",
-    "ALTER TABLE products ADD COLUMN has_sizes INTEGER DEFAULT 0",
-    "ALTER TABLE products ADD COLUMN sizes_json TEXT",
-    "ALTER TABLE products ADD COLUMN extras_json TEXT",
-  ] as $sql) {
-    try { $p->exec($sql); } catch (Throwable $e) { /* العمود موجود */ }
+  // v3: أعمدة الأحجام/الإضافات/الصورة للمنتجات + تحويل مجموعات الخيارات
+  if ($ver < 3) {
+    foreach ([
+      "ALTER TABLE products ADD COLUMN image TEXT",
+      "ALTER TABLE products ADD COLUMN has_sizes INTEGER DEFAULT 0",
+      "ALTER TABLE products ADD COLUMN sizes_json TEXT",
+      "ALTER TABLE products ADD COLUMN extras_json TEXT",
+    ] as $sql) {
+      try { $p->exec($sql); } catch (Throwable $e) { /* العمود موجود */ }
+    }
+    try { migrate_options_to_json($p); } catch (Throwable $e) { /* تجاهل */ }
   }
 
-  try { migrate_options_to_json($p); } catch (Throwable $e) { /* تجاهل */ }
+  // v4: صورة لكل تصنيف
+  if ($ver < 4) {
+    try { $p->exec("ALTER TABLE categories ADD COLUMN image TEXT"); } catch (Throwable $e) { /* موجود */ }
+  }
+
+  // v5: تخصيص المستخدم لفرع (لمدراء الفروع)
+  if ($ver < 5) {
+    try { $p->exec("ALTER TABLE admins ADD COLUMN branch_id INTEGER"); } catch (Throwable $e) { /* موجود */ }
+  }
 
   $up = $p->prepare(DB_DRIVER === 'mysql'
-    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','3')"
-    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','3')");
+    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','5')"
+    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','5')");
   $up->execute();
 }
 
