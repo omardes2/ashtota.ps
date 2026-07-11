@@ -1,28 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#7a4f38"/>
-      <stop offset="1" stop-color="#5b3a29"/>
+      <stop offset="0" stop-color="#1a7cc4"/>
+      <stop offset="1" stop-color="#0d5c9c"/>
     </linearGradient>
-    <linearGradient id="cream" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f5e7cf"/>
-      <stop offset="1" stop-color="#fbf3e4"/>
+    <linearGradient id="milk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6f4fd"/>
     </linearGradient>
-    <linearGradient id="caramel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e0a95c"/>
-      <stop offset="1" stop-color="#c9873f"/>
+    <linearGradient id="drop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7dd3f2"/>
+      <stop offset="1" stop-color="#39a8e0"/>
     </linearGradient>
   </defs>
+  <!-- خلفية درع أزرق -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- plate -->
-  <ellipse cx="256" cy="360" rx="150" ry="34" fill="url(#cream)"/>
-  <!-- pudding body -->
-  <path d="M150 250 q106 -46 212 0 l-24 96 q-82 34 -164 0 z" fill="url(#cream)"/>
-  <!-- caramel top -->
-  <path d="M150 250 q106 -70 212 0 q-106 44 -212 0 z" fill="url(#caramel)"/>
-  <!-- caramel drip -->
-  <path d="M256 214 c26 0 40 22 40 40 c0 8 -80 8 -80 0 c0 -18 14 -40 40 -40 z" fill="#c9873f"/>
-  <!-- cherry -->
-  <circle cx="256" cy="196" r="20" fill="#d9534f"/>
-  <rect x="252" y="150" width="8" height="40" rx="4" fill="#3f9d6b"/>
+  <!-- قطرة لبن كبيرة بيضاء -->
+  <path d="M256 116 C 320 210, 372 262, 372 322 a116 116 0 0 1 -232 0 C 140 262, 192 210, 256 116 Z" fill="url(#milk)"/>
+  <!-- لمعة داخل القطرة -->
+  <path d="M212 300 a44 60 0 0 0 44 60" fill="none" stroke="#bfe4f8" stroke-width="14" stroke-linecap="round"/>
+  <!-- قطرات صغيرة -->
+  <circle cx="150" cy="180" r="16" fill="url(#drop)"/>
+  <circle cx="372" cy="200" r="12" fill="url(#drop)"/>
 </svg>

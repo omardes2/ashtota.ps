@@ -4,21 +4,22 @@
    ============================================================ */
 
 :root {
-  --cream: #fbf3e4;
-  --cream-2: #f5e7cf;
-  --brown: #5b3a29;
-  --brown-2: #7a4f38;
-  --caramel: #c9873f;
-  --caramel-2: #e0a95c;
-  --gold: #d9a441;
-  --pink: #e26d8a;
+  /* لوحة ألوان مطابقة لشعار قشطوطة بلبن (أزرق اللبن) */
+  --cream: #edf6fd;      /* خلفية الصفحة – أزرق حليبي فاتح */
+  --cream-2: #d6e9f7;    /* حدود وعناصر ثانوية */
+  --brown: #0d5c9c;      /* الأزرق الأساسي للعلامة */
+  --brown-2: #1a7cc4;    /* أزرق متوسط للتدرّج */
+  --caramel: #2b9bd8;    /* أزرق لامع – الأسعار والأزرار */
+  --caramel-2: #5cbdea;  /* أزرق سماوي فاتح */
+  --gold: #83d2f0;       /* لمسة سماوية – نهاية تدرّج الأزرار */
+  --pink: #ef6b8a;       /* شارة "مميز" للتباين */
   --green: #3f9d6b;
-  --red: #d9534f;
-  --ink: #3a2b22;
-  --muted: #8a7663;
+  --red: #e0574f;
+  --ink: #103247;        /* نص رمادي مزرق داكن */
+  --muted: #6d879c;
   --white: #ffffff;
-  --shadow: 0 6px 20px rgba(91, 58, 41, 0.12);
-  --shadow-lg: 0 12px 40px rgba(91, 58, 41, 0.22);
+  --shadow: 0 6px 20px rgba(13, 92, 156, 0.14);
+  --shadow-lg: 0 12px 40px rgba(13, 92, 156, 0.24);
   --radius: 16px;
   --radius-sm: 10px;
   --max: 900px;
@@ -90,11 +91,11 @@ a { color: inherit; text-decoration: none; }
 /* ---------------------- الهيرو ---------------------- */
 .hero {
   background:
-    radial-gradient(120% 80% at 80% 0%, rgba(224,169,92,.35), transparent),
+    radial-gradient(120% 80% at 80% 0%, rgba(92,189,234,.40), transparent),
     linear-gradient(135deg, var(--cream-2), var(--cream));
   padding: 28px 0 22px;
   text-align: center;
-  border-bottom: 2px dashed rgba(201,135,63,.35);
+  border-bottom: 2px dashed rgba(43,155,216,.35);
 }
 .hero h1 { color: var(--brown); font-size: 1.6rem; margin-bottom: 6px; }
 .hero p { color: var(--muted); margin-bottom: 16px; }
@@ -292,7 +293,7 @@ a { color: inherit; text-decoration: none; }
   border: 1.5px solid var(--cream-2); border-radius: var(--radius-sm);
   padding: 10px 12px; margin-bottom: 8px; transition: border-color .15s;
 }
-.opt.selected { border-color: var(--caramel); background: #fff8ee; }
+.opt.selected { border-color: var(--caramel); background: #eaf6fe; }
 .opt .o-check {
   width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--cream-2);
   display: grid; place-items: center; flex: 0 0 auto; color: #fff; font-size: .8rem;
