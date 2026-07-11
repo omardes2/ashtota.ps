@@ -1,0 +1,41 @@
+import type { Metadata } from "next";
+import { Tajawal } from "next/font/google";
+import "./globals.css";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import MobileCartBar from "@/components/layout/MobileCartBar";
+import BranchSelectorModal from "@/components/branches/BranchSelectorModal";
+import ProductCustomizationModal from "@/components/products/ProductCustomizationModal";
+import Toast from "@/components/shared/Toast";
+
+const tajawal = Tajawal({
+  subsets: ["arabic"],
+  weight: ["400", "500", "700", "800", "900"],
+  variable: "--font-tajawal",
+});
+
+export const metadata: Metadata = {
+  title: "قشطوطة بلبن | اطلب أونلاين",
+  description:
+    "قشطوطة بلبن — حلويات طازجة بلبن. اطلب أونلاين من أقرب فرع إليك في فلسطين. توصيل سريع واستلام من الفرع.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="ar" dir="rtl">
+      <body className={`${tajawal.variable} font-sans bg-cloud antialiased`}>
+        <Header />
+        <main className="min-h-[60vh] pb-24 md:pb-0">{children}</main>
+        <Footer />
+        <MobileBottomNav />
+        <MobileCartBar />
+        <BranchSelectorModal />
+        <ProductCustomizationModal />
+        <Toast />
+      </body>
+    </html>
+  );
+}
