@@ -182,6 +182,9 @@ switch ($action) {
 
   case 'branch_delete': {
     $id = (int)($in['id'] ?? 0);
+    // تنظيف البيانات المرتبطة بالفرع
+    $p->prepare("DELETE FROM product_branch WHERE branch_id=?")->execute([$id]);
+    $p->prepare("DELETE FROM delivery_zones WHERE branch_id=?")->execute([$id]);
     $p->prepare("DELETE FROM branches WHERE id=?")->execute([$id]);
     json_out(['ok' => true]);
   }

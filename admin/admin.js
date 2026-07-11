@@ -263,8 +263,20 @@ async function viewBranches() {
             <td>${+b.is_open ? '<span class="dot-open">● مفتوح</span>' : '<span class="dot-closed">● مغلق</span>'}</td>
             <td>${+b.allow_delivery ? "🛵" : "—"} ${+b.allow_pickup ? "🏬" : "—"}</td>
             <td>${money(b.min_order)}</td>
-            <td><button class="icon-btn" onclick='editBranch(${b.id})'>✏️</button></td>
+            <td><div class="row-actions">
+              <button class="icon-btn" onclick='editBranch(${b.id})'>✏️</button>
+              <button class="icon-btn danger" onclick="delBranch(${b.id},'${esc(b.name)}')">🗑</button>
+            </div></td>
           </tr>`).join("")}</tbody></table></div></div>`;
+}
+async function delBranch(id, name) {
+  if (!confirm(`حذف الفرع "${name}"؟\nسيُحذف معه أسعار المنتجات ومناطق التوصيل التابعة له. (لا يؤثر على الطلبات السابقة)`)) return;
+  const r = await call("branch_delete", { id });
+  if (r.ok) {
+    toast("تم حذف الفرع");
+    const bb = await call("branches_list"); if (bb.ok) BRANCHES = bb.branches;
+    viewBranches();
+  } else toast("خطأ في الحذف");
 }
 function editBranch(id) {
   const b = id ? BRANCHES.find(x => +x.id === id) : null;
