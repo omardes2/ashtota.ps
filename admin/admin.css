@@ -79,7 +79,8 @@ tr:last-child td{border-bottom:none}
 .row-actions{display:flex;gap:6px}
 .icon-btn{background:var(--line);color:var(--blue);width:32px;height:32px;border-radius:8px;font-size:.9rem;display:grid;place-items:center}
 .icon-btn.danger{background:#fde8e6;color:var(--red)}
-.ord-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ord-actions{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;white-space:nowrap}
+.ord-actions .btn-primary,.ord-actions .btn-ghost{width:auto;padding:6px 12px;font-size:.82rem}
 .ord-status-sel{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue);font-weight:700;font-size:.82rem}
 .report-custom{display:flex;gap:12px;align-items:end;flex-wrap:wrap;padding:0 16px 10px}
 .report-custom label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:700;color:var(--blue)}
