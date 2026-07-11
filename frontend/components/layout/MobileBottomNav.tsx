@@ -7,9 +7,9 @@ import { useHydrated } from "@/lib/useHydrated";
 const ITEMS = [
   { href: "/", label: "الرئيسية", icon: "🏠" },
   { href: "/products", label: "المنتجات", icon: "🍮" },
-  { href: "/account", label: "الطلبات", icon: "🧾" },
-  { href: "/account", label: "المفضلة", icon: "❤️", key: "wish" },
-  { href: "/account", label: "الحساب", icon: "👤", key: "acc" },
+  { href: "/offers", label: "العروض", icon: "🎁" },
+  { href: "/branches", label: "الفروع", icon: "🏬" },
+  { href: "/cart", label: "السلة", icon: "🛒" },
 ];
 
 export default function MobileBottomNav() {
@@ -21,7 +21,7 @@ export default function MobileBottomNav() {
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-cloud bg-white/95 backdrop-blur md:hidden">
       <div className="grid grid-cols-5">
         {ITEMS.map((it, i) => {
-          const active = pathname === it.href && i < 2;
+          const active = pathname === it.href;
           return (
             <Link
               key={i}

@@ -76,13 +76,6 @@ export default function Header() {
               🔍
             </Link>
             <Link
-              href="/account"
-              aria-label="حسابي"
-              className="grid h-10 w-10 place-items-center rounded-xl text-lg text-ink transition hover:bg-cloud"
-            >
-              👤
-            </Link>
-            <Link
               href="/cart"
               aria-label="السلة"
               className="relative grid h-10 w-10 place-items-center rounded-xl text-lg text-ink transition hover:bg-cloud"

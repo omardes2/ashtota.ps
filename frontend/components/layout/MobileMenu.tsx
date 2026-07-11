@@ -59,9 +59,6 @@ export default function MobileMenu({
               {n.label}
             </Link>
           ))}
-          <Link href="/account" onClick={onClose} className="rounded-xl px-3 py-3 font-bold text-ink hover:bg-cloud">
-            حسابي
-          </Link>
         </nav>
       </aside>
     </div>
