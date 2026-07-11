@@ -8,6 +8,7 @@ const ASSETS = [
   "./js/cart.js",
   "./js/ui.js",
   "./js/app.js",
+  "./icons/icon.svg",
   "./manifest.webmanifest",
 ];
 
