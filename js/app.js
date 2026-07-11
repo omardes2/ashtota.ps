@@ -236,7 +236,7 @@ const App = (() => {
       UI.checkoutSummary(checkoutMode, selectedZone());
   }
 
-  function placeOrder() {
+  async function placeOrder() {
     const name = document.getElementById("ckName").value.trim();
     const phone = document.getElementById("ckPhone").value.trim();
     if (!name || !phone) { toast("يرجى إدخال الاسم ورقم الهاتف"); return; }
@@ -244,19 +244,51 @@ const App = (() => {
     const branch = Cart.getBranch();
     const mode = checkoutMode;
     const zone = selectedZone();
+    const address = mode === "delivery" ? document.getElementById("ckAddress").value.trim() : "";
 
     if (mode === "delivery") {
       if (!zone) { toast("يرجى اختيار منطقة التوصيل"); return; }
-      const address = document.getElementById("ckAddress").value.trim();
       if (!address) { toast("يرجى إدخال العنوان"); return; }
       if (Cart.subtotal() < zone.minOrder) {
         toast(`الحد الأدنى للطلب في ${zone.name} هو ${UI.money(zone.minOrder)}`); return;
       }
     }
 
-    const fee = Cart.deliveryFee(zone, mode);
-    const total = Cart.subtotal() + fee;
-    const orderNo = "Q" + Date.now().toString().slice(-6);
+    let fee = Cart.deliveryFee(zone, mode);
+    let total = Cart.subtotal() + fee;
+    let orderNo = "Q" + Date.now().toString().slice(-6);
+    const note = document.getElementById("ckNote").value.trim();
+
+    // محاولة حفظ الطلب في قاعدة البيانات (إن كان الـ backend مثبّتًا)
+    try {
+      const payload = {
+        branchId: branch.id, name, phone, mode,
+        zoneId: zone ? zone.id : null, address, note,
+        items: Cart.items().map(it => ({
+          productId: it.productId, qty: it.qty,
+          options: it.options.map(o => ({ id: o.id })), note: it.note,
+        })),
+      };
+      const res = await fetch("api/order.php", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const r = await res.json().catch(() => null);
+      if (r && r.ok) {
+        orderNo = r.orderNo; fee = r.deliveryFee; total = r.total;
+      } else if (r && r.error) {
+        const messages = {
+          below_min: "قيمة الطلب أقل من الحد الأدنى للمنطقة",
+          unavailable: "أحد المنتجات لم يعد متوفرًا",
+          missing_address: "يرجى إدخال العنوان",
+          missing_zone: "يرجى اختيار منطقة التوصيل",
+          invalid_branch: "الفرع غير صالح",
+        };
+        if (messages[r.error]) { toast(messages[r.error]); return; }
+      }
+    } catch (e) {
+      // الـ backend غير متاح — نكمل بإرسال واتساب فقط
+    }
 
     // بناء رسالة واتساب
     let msg = `*طلب جديد - قشطوطة بلبن* 🍮%0A`;
@@ -276,7 +308,6 @@ const App = (() => {
       if (it.options.length) msg += `   (${it.options.map(o => o.name).join("، ")})%0A`;
       if (it.note) msg += `   ملاحظة: ${it.note}%0A`;
     });
-    const note = document.getElementById("ckNote").value.trim();
     if (note) msg += `ملاحظة الطلب: ${note}%0A`;
     msg += `----------%0A`;
     msg += `المجموع الفرعي: ${UI.money(Cart.subtotal())}%0A`;
@@ -308,4 +339,49 @@ const App = (() => {
   };
 })();
 
-document.addEventListener("DOMContentLoaded", App.init);
+/* ------------------ تحميل البيانات من الـ API ------------------ */
+// يحاول جلب المنيو من قاعدة البيانات (api/menu.php).
+// عند الفشل (لم يُثبَّت الـ backend بعد) يستخدم البيانات الثابتة في data.js.
+async function bootstrap() {
+  try {
+    const res = await fetch("api/menu.php", { cache: "no-store" });
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.ok) {
+        window.STORE = normalizeStore(d);
+        window.STORE_SOURCE = "api";
+      }
+    }
+  } catch (e) {
+    // إبقاء البيانات الثابتة (data.js) كخطة بديلة
+    window.STORE_SOURCE = "static";
+  }
+  App.init();
+}
+
+// توحيد المعرّفات إلى نصوص (كما في التصميم الأصلي) لتفادي عدم تطابق الأرقام مع النصوص
+function normalizeStore(d) {
+  const S = (v) => (v === null || v === undefined) ? v : String(v);
+  const optionGroups = {};
+  Object.keys(d.optionGroups || {}).forEach(k => {
+    const g = d.optionGroups[k];
+    optionGroups[S(g.id)] = {
+      ...g, id: S(g.id),
+      options: (g.options || []).map(o => ({ ...o, id: S(o.id) })),
+    };
+  });
+  return {
+    brand: d.brand,
+    branches: (d.branches || []).map(b => ({ ...b, id: S(b.id) })),
+    categories: (d.categories || []).map(c => ({ ...c, id: S(c.id) })),
+    optionGroups,
+    products: (d.products || []).map(p => ({
+      ...p, id: S(p.id), categoryId: S(p.categoryId),
+      optionGroups: (p.optionGroups || []).map(S),
+      availability: (p.availability || []).map(a => ({ ...a, branchId: S(a.branchId) })),
+    })),
+    deliveryZones: (d.deliveryZones || []).map(z => ({ ...z, id: S(z.id), branchId: S(z.branchId) })),
+  };
+}
+
+document.addEventListener("DOMContentLoaded", bootstrap);

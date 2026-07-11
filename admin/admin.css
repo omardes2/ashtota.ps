@@ -1,0 +1,109 @@
+/* لوحة تحكم قشطوطة بلبن – تصميم أزرق مطابق للهوية */
+:root{
+  --blue:#0d5c9c; --blue-2:#1a7cc4; --sky:#2b9bd8; --sky-2:#5cbdea; --sky-3:#83d2f0;
+  --bg:#eef5fb; --panel:#ffffff; --line:#dce9f5; --ink:#103247; --muted:#6d879c;
+  --green:#3f9d6b; --red:#e0574f; --amber:#e0a53f;
+  --radius:14px; --shadow:0 6px 20px rgba(13,92,156,.10);
+  --font:"Tajawal",Tahoma,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);direction:rtl}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit}
+.hidden{display:none!important}
+.muted{color:var(--muted)}
+
+/* ---------- الدخول ---------- */
+.login-screen{min-height:100vh;display:grid;place-items:center;padding:20px;
+  background:radial-gradient(120% 80% at 80% 0%,rgba(92,189,234,.35),transparent),linear-gradient(135deg,#d6e9f7,#eef5fb)}
+.login-box{background:var(--panel);padding:30px;border-radius:20px;box-shadow:var(--shadow);width:100%;max-width:380px;text-align:center}
+.login-logo{width:64px;height:64px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:2rem;
+  background:linear-gradient(135deg,var(--sky-2),var(--sky-3))}
+.login-box h1{color:var(--blue);font-size:1.25rem;margin-bottom:4px}
+.login-err{color:var(--red);font-size:.9rem;min-height:20px;margin:6px 0}
+
+/* ---------- عام للحقول ---------- */
+.field{text-align:right;margin-bottom:12px}
+.field label{display:block;font-weight:700;margin-bottom:6px;font-size:.9rem;color:var(--blue)}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:.95rem}
+.field textarea{min-height:70px;resize:vertical}
+.btn-primary{background:linear-gradient(135deg,var(--sky),var(--sky-3));color:#fff;font-weight:800;padding:12px 20px;border-radius:999px;width:100%}
+.btn-ghost{background:var(--line);color:var(--blue);font-weight:800;padding:10px 16px;border-radius:999px}
+.btn-danger{background:var(--red);color:#fff;font-weight:800;padding:8px 14px;border-radius:999px;font-size:.85rem}
+.btn-sm{padding:6px 12px;border-radius:999px;font-weight:800;font-size:.82rem}
+
+/* ---------- التخطيط ---------- */
+.app{display:flex;min-height:100vh}
+.sidebar{width:240px;background:linear-gradient(180deg,var(--blue),var(--blue-2));color:#eaf4fd;display:flex;flex-direction:column;padding:18px 14px;position:sticky;top:0;height:100vh}
+.sidebar .brand{font-weight:800;font-size:1.15rem;display:flex;gap:8px;align-items:center;margin-bottom:20px;padding:0 6px}
+.nav{display:flex;flex-direction:column;gap:4px;flex:1}
+.nav button{color:#dbeaf8;text-align:right;padding:11px 14px;border-radius:10px;font-weight:700;font-size:.95rem;transition:.15s}
+.nav button:hover{background:rgba(255,255,255,.1)}
+.nav button.active{background:#fff;color:var(--blue)}
+.logout{color:#ffd7d3;text-align:right;padding:11px 14px;border-radius:10px;font-weight:700;margin-top:10px}
+.logout:hover{background:rgba(255,255,255,.1)}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.topbar .title{font-weight:800;font-size:1.15rem;color:var(--blue)}
+.topbar .who{margin-inline-start:auto;color:var(--muted);font-size:.9rem}
+.menu-toggle{display:none;font-size:1.4rem;color:var(--blue)}
+.content{padding:20px;flex:1}
+
+/* ---------- بطاقات إحصائية ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.stat{background:var(--panel);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.stat .n{font-size:1.8rem;font-weight:800;color:var(--blue)}
+.stat .l{color:var(--muted);font-size:.85rem;margin-top:2px}
+.stat.accent{background:linear-gradient(135deg,var(--sky),var(--sky-3));color:#fff}
+.stat.accent .n,.stat.accent .l{color:#fff}
+
+/* ---------- جداول ---------- */
+.panel{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.panel-head h2{font-size:1.05rem;color:var(--blue)}
+.panel-head .sp{margin-inline-start:auto}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th,td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--line);font-size:.9rem;white-space:nowrap}
+th{background:#f4f9fd;color:var(--muted);font-weight:700;font-size:.82rem}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.75rem;font-weight:800;color:#fff}
+.b-new{background:var(--amber)} .b-confirmed{background:var(--sky)} .b-preparing{background:#7b61ff}
+.b-ready{background:#2aa198} .b-out_for_delivery{background:#0d6efd} .b-delivered{background:var(--green)}
+.b-completed{background:var(--green)} .b-cancelled{background:var(--red)} .b-rejected{background:var(--red)}
+.dot-open{color:var(--green);font-weight:800}.dot-closed{color:var(--red);font-weight:800}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;padding:14px 16px}
+.chip{background:var(--line);color:var(--blue);padding:7px 14px;border-radius:999px;font-weight:700;font-size:.85rem}
+.chip.active{background:linear-gradient(135deg,var(--sky),var(--sky-3));color:#fff}
+.row-actions{display:flex;gap:6px}
+.icon-btn{background:var(--line);color:var(--blue);width:32px;height:32px;border-radius:8px;font-size:.9rem;display:grid;place-items:center}
+.icon-btn.danger{background:#fde8e6;color:var(--red)}
+
+/* ---------- نوافذ ---------- */
+.overlay{position:fixed;inset:0;background:rgba(16,50,71,.5);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.overlay.show{display:flex}
+.modal{background:var(--bg);border-radius:18px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-head{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--line);z-index:2}
+.modal-head h3{flex:1;color:var(--blue)}
+.modal-close{width:34px;height:34px;border-radius:50%;background:var(--line);color:var(--blue);font-size:1.2rem;font-weight:800}
+.modal-body{padding:16px}
+.modal-foot{position:sticky;bottom:0;background:var(--bg);padding:14px 16px;border-top:1px solid var(--line);display:flex;gap:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-weight:700}
+.check input{width:20px;height:20px}
+.av-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.av-row .av-name{font-weight:700;font-size:.9rem}
+.av-row input[type=number]{width:80px;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px}
+
+.toast{position:fixed;bottom:24px;inset-inline:0;margin:auto;width:fit-content;background:var(--blue);color:#fff;padding:11px 22px;border-radius:999px;font-weight:700;box-shadow:var(--shadow);opacity:0;transform:translateY(20px);transition:.25s;z-index:80;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.empty{text-align:center;padding:40px;color:var(--muted)}
+
+@media(max-width:760px){
+  .sidebar{position:fixed;inset-inline-start:0;top:0;z-index:50;transform:translateX(-105%);transition:.25s;box-shadow:var(--shadow)}
+  html[dir=rtl] .sidebar{transform:translateX(105%)}
+  .sidebar.open{transform:translateX(0)!important}
+  .menu-toggle{display:block}
+  .grid2{grid-template-columns:1fr}
+}

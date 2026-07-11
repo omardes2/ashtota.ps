@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0d5c9c" />
+  <title>لوحة تحكم | قشطوطة بلبن</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+
+  <!-- شاشة الدخول -->
+  <div id="loginScreen" class="login-screen">
+    <form class="login-box" id="loginForm">
+      <div class="login-logo">🍮</div>
+      <h1>لوحة تحكم قشطوطة بلبن</h1>
+      <p class="muted">سجّل الدخول للمتابعة</p>
+      <div class="field"><label>اسم المستخدم</label><input id="lgUser" autocomplete="username" required /></div>
+      <div class="field"><label>كلمة المرور</label><input id="lgPass" type="password" autocomplete="current-password" required /></div>
+      <div class="login-err" id="lgErr"></div>
+      <button class="btn-primary" type="submit">دخول</button>
+    </form>
+  </div>
+
+  <!-- التطبيق -->
+  <div id="app" class="app hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><span>🍮</span> قشطوطة بلبن</div>
+      <nav class="nav" id="nav">
+        <button data-view="dashboard" class="active">📊 لوحة القيادة</button>
+        <button data-view="orders">🧾 الطلبات</button>
+        <button data-view="products">🍮 المنتجات</button>
+        <button data-view="branches">🏬 الفروع</button>
+        <button data-view="categories">🗂 التصنيفات</button>
+        <button data-view="zones">🛵 مناطق التوصيل</button>
+        <button data-view="settings">⚙️ الإعدادات</button>
+      </nav>
+      <button class="logout" id="logoutBtn">🚪 تسجيل الخروج</button>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <div class="title" id="viewTitle">لوحة القيادة</div>
+        <div class="who" id="whoName"></div>
+      </header>
+      <main class="content" id="content"></main>
+    </div>
+  </div>
+
+  <!-- طبقة النوافذ -->
+  <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

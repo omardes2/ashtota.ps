@@ -18,3 +18,10 @@ npm-debug.log*
 .env.*
 config.local.php
 secrets.json
+
+# قاعدة بيانات SQLite (لا تُرفع — تُنشأ على الخادم)
+api/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+qashtoota_data/
