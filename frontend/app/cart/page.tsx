@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useCartStore } from "@/store/useCartStore";
 import { useBranchStore } from "@/store/useBranchStore";
+import { useMenuStore } from "@/store/useMenuStore";
 import { useHydrated } from "@/lib/useHydrated";
-import { getBranch } from "@/data/branches";
 import CartItemRow from "@/components/cart/CartItemRow";
 import OrderSummary from "@/components/cart/OrderSummary";
 import EmptyState from "@/components/shared/EmptyState";
@@ -15,7 +15,8 @@ export default function CartPage() {
   const items = useCartStore((s) => s.items);
   const clear = useCartStore((s) => s.clear);
   const subtotal = items.reduce((a, i) => a + i.unitPrice * i.qty, 0);
-  const branch = getBranch(useBranchStore((s) => s.branchId));
+  const branchId = useBranchStore((s) => s.branchId);
+  const branch = useMenuStore((s) => s.branches.find((b) => b.id === branchId));
   const [code, setCode] = useState("");
   const [discount, setDiscount] = useState(0);
 

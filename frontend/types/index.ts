@@ -53,6 +53,17 @@ export interface Product {
   isNew?: boolean;
   isBestSeller?: boolean;
   isAvailable: boolean;
+  // سعر المنتج في كل فرع (عند التحميل من قاعدة البيانات)
+  branchPrices?: Record<string, number>;
+}
+
+export interface DeliveryZone {
+  id: string;
+  branchId: string;
+  name: string;
+  fee: number;
+  minOrder: number;
+  freeOver?: number | null;
 }
 
 export interface Offer {

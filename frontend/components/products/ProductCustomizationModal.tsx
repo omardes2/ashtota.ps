@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { ProductExtra, ProductSize } from "@/types";
 import { useUiStore } from "@/store/useUiStore";
 import { useCartStore } from "@/store/useCartStore";
+import { useBranchStore } from "@/store/useBranchStore";
 import { formatPrice } from "@/lib/currency";
 import { cartItemKey, cn, computeUnitPrice } from "@/lib/utils";
 import QuantitySelector from "@/components/shared/QuantitySelector";
@@ -13,6 +14,7 @@ export default function ProductCustomizationModal() {
   const close = useUiStore((s) => s.closeCustomize);
   const showToast = useUiStore((s) => s.showToast);
   const addItem = useCartStore((s) => s.addItem);
+  const branchId = useBranchStore((s) => s.branchId);
 
   const [size, setSize] = useState<ProductSize | undefined>();
   const [extras, setExtras] = useState<ProductExtra[]>([]);
@@ -30,7 +32,8 @@ export default function ProductCustomizationModal() {
 
   if (!product) return null;
 
-  const unit = computeUnitPrice(product.price, size, extras);
+  const base = (branchId && product.branchPrices?.[branchId]) || product.price;
+  const unit = computeUnitPrice(base, size, extras);
 
   function toggleExtra(ex: ProductExtra) {
     if (ex.id === "none") {
@@ -49,7 +52,7 @@ export default function ProductCustomizationModal() {
       productId: product!.id,
       name: product!.name,
       emoji: product!.emoji,
-      basePrice: product!.price,
+      basePrice: base,
       size,
       extras,
       note: note.trim() || undefined,

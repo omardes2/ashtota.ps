@@ -2,13 +2,13 @@
 import { useBranchStore } from "@/store/useBranchStore";
 import { useUiStore } from "@/store/useUiStore";
 import { useHydrated } from "@/lib/useHydrated";
-import { getBranch } from "@/data/branches";
+import { useMenuStore } from "@/store/useMenuStore";
 
 export default function SelectedBranchCard() {
   const hydrated = useHydrated();
   const branchId = useBranchStore((s) => s.branchId);
   const openBranchModal = useUiStore((s) => s.openBranchModal);
-  const branch = getBranch(branchId);
+  const branch = useMenuStore((s) => s.branches.find((b) => b.id === branchId));
 
   return (
     <div className="container-p -mt-6 relative z-10">

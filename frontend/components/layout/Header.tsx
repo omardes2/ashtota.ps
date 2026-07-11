@@ -7,7 +7,7 @@ import { useBranchStore } from "@/store/useBranchStore";
 import { useCartStore } from "@/store/useCartStore";
 import { useUiStore } from "@/store/useUiStore";
 import { useHydrated } from "@/lib/useHydrated";
-import { getBranch } from "@/data/branches";
+import { useMenuStore } from "@/store/useMenuStore";
 
 const NAV = [
   { href: "/", label: "الرئيسية" },
@@ -24,7 +24,7 @@ export default function Header() {
   const branchId = useBranchStore((s) => s.branchId);
   const count = useCartStore((s) => s.items.reduce((a, i) => a + i.qty, 0));
   const openBranchModal = useUiStore((s) => s.openBranchModal);
-  const branch = getBranch(branchId);
+  const branch = useMenuStore((s) => s.branches.find((b) => b.id === branchId));
 
   return (
     <>

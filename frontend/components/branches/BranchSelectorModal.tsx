@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
-import { branches } from "@/data/branches";
 import { useBranchStore } from "@/store/useBranchStore";
+import { useMenuStore } from "@/store/useMenuStore";
 import { useCartStore } from "@/store/useCartStore";
 import { useUiStore } from "@/store/useUiStore";
 import { formatPrice } from "@/lib/currency";
@@ -16,6 +16,7 @@ export default function BranchSelectorModal() {
   const setBranch = useBranchStore((s) => s.setBranch);
   const cartItems = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clear);
+  const branches = useMenuStore((s) => s.branches);
 
   // فتح تلقائي عند أول زيارة (لا يوجد فرع مختار)
   useEffect(() => {

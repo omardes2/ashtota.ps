@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/useCartStore";
 import { useBranchStore } from "@/store/useBranchStore";
 import { useUiStore } from "@/store/useUiStore";
+import { useMenuStore } from "@/store/useMenuStore";
 import { useHydrated } from "@/lib/useHydrated";
-import { getBranch } from "@/data/branches";
+import { submitOrder } from "@/lib/api";
 import OrderSummary from "@/components/cart/OrderSummary";
 import EmptyState from "@/components/shared/EmptyState";
 import { cn } from "@/lib/utils";
@@ -16,9 +17,14 @@ export default function CheckoutPage() {
   const hydrated = useHydrated();
   const items = useCartStore((s) => s.items);
   const clear = useCartStore((s) => s.clear);
-  const branch = getBranch(useBranchStore((s) => s.branchId));
+  const branchId = useBranchStore((s) => s.branchId);
+  const branch = useMenuStore((s) => s.branches.find((b) => b.id === branchId));
+  const allZones = useMenuStore((s) => s.zones);
+  const zones = allZones.filter((z) => z.branchId === branchId);
   const showToast = useUiStore((s) => s.showToast);
   const subtotal = items.reduce((a, i) => a + i.unitPrice * i.qty, 0);
+  const [zoneId, setZoneId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -38,28 +44,76 @@ export default function CheckoutPage() {
     return <div className="container-p"><EmptyState title="لا توجد منتجات لإتمام الطلب" actionLabel="تصفّح المنتجات" actionHref="/products" /></div>;
   }
 
-  const deliveryFee = mode === "delivery" ? branch?.deliveryFeeFrom ?? 0 : 0;
+  const zone = zones.find((z) => z.id === zoneId);
+  const deliveryFee =
+    mode === "delivery"
+      ? zone
+        ? zone.freeOver && subtotal >= zone.freeOver
+          ? 0
+          : zone.fee
+        : branch?.deliveryFeeFrom ?? 0
+      : 0;
 
-  function confirm() {
-    if (!name.trim() || !phone.trim()) return showToast("يرجى إدخال الاسم ورقم الهاتف", "error");
-    if (mode === "delivery" && (!area.trim() || !street.trim())) return showToast("يرجى إكمال عنوان التوصيل", "error");
-
-    const order = {
-      orderNo: "Q" + Date.now().toString().slice(-6),
-      branchName: branch?.name ?? "",
-      mode,
-      customer: { name, phone },
-      items: items.map((i) => ({ name: i.name, qty: i.qty, total: i.unitPrice * i.qty, size: i.size?.name, extras: i.extras.map((e) => e.name) })),
-      subtotal,
-      deliveryFee,
-      total: subtotal + deliveryFee,
-      createdAt: new Date().toISOString(),
-    };
+  function saveAndGo(orderNo: string, total: number) {
     try {
-      localStorage.setItem("qashtoota-last-order", JSON.stringify(order));
+      localStorage.setItem(
+        "qashtoota-last-order",
+        JSON.stringify({ orderNo, branchName: branch?.name ?? "", mode, total, createdAt: new Date().toISOString() })
+      );
     } catch {}
     clear();
     router.push("/order-success");
+  }
+
+  async function confirm() {
+    if (!branchId || !branch) return showToast("اختر الفرع أولًا", "error");
+    if (!name.trim() || !phone.trim()) return showToast("يرجى إدخال الاسم ورقم الهاتف", "error");
+    if (mode === "delivery") {
+      if (zones.length > 0 && !zoneId) return showToast("يرجى اختيار منطقة التوصيل", "error");
+      if (!street.trim() && !area.trim()) return showToast("يرجى إكمال عنوان التوصيل", "error");
+    }
+
+    const addressText = [area, street, building && `عمارة ${building}`, floor && `طابق ${floor}`, landmark]
+      .filter(Boolean)
+      .join("، ");
+
+    setSubmitting(true);
+    const res = await submitOrder({
+      branchId,
+      name,
+      phone,
+      mode,
+      zoneId: mode === "delivery" ? zoneId || null : null,
+      address: addressText,
+      note,
+      items: items.map((i) => ({
+        productId: i.productId,
+        qty: i.qty,
+        options: [...(i.size ? [{ id: i.size.id }] : []), ...i.extras.map((e) => ({ id: e.id }))],
+        note: i.note,
+      })),
+    });
+    setSubmitting(false);
+
+    if (res.ok) {
+      saveAndGo(res.orderNo || "Q" + Date.now().toString().slice(-6), res.total ?? subtotal + deliveryFee);
+      return;
+    }
+    const map: Record<string, string> = {
+      below_min: "قيمة الطلب أقل من الحد الأدنى للمنطقة",
+      unavailable: "أحد المنتجات لم يعد متوفرًا في الفرع",
+      missing_zone: "يرجى اختيار منطقة التوصيل",
+      missing_address: "يرجى إدخال العنوان",
+      invalid_zone: "منطقة التوصيل غير صحيحة",
+      invalid_branch: "الفرع غير صالح",
+    };
+    if (res.error && map[res.error]) return showToast(map[res.error], "error");
+    if (res.error === "network") {
+      // الـ backend غير متاح — حفظ محلي كخطة بديلة
+      saveAndGo("Q" + Date.now().toString().slice(-6), subtotal + deliveryFee);
+      return;
+    }
+    showToast("تعذّر إرسال الطلب، يرجى المحاولة مجددًا", "error");
   }
 
   return (
@@ -84,8 +138,25 @@ export default function CheckoutPage() {
 
           {mode === "delivery" && (
             <Section title="عنوان التوصيل">
+              {zones.length > 0 && (
+                <label className="block">
+                  <span className="mb-1 block text-sm font-bold text-ink">منطقة التوصيل</span>
+                  <select
+                    value={zoneId}
+                    onChange={(e) => setZoneId(e.target.value)}
+                    className="w-full rounded-xl2 border-2 border-cloud px-3 py-2 outline-none focus:border-brand-light"
+                  >
+                    <option value="">— اختر المنطقة —</option>
+                    {zones.map((z) => (
+                      <option key={z.id} value={z.id}>
+                        {z.name} (توصيل {z.fee} ₪)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="المنطقة" value={area} onChange={setArea} />
+                <Field label="المنطقة / الحي" value={area} onChange={setArea} />
                 <Field label="الحي / الشارع" value={street} onChange={setStreet} />
                 <Field label="رقم البناية" value={building} onChange={setBuilding} />
                 <Field label="الطابق" value={floor} onChange={setFloor} />
@@ -126,7 +197,9 @@ export default function CheckoutPage() {
               ))}
             </div>
             <OrderSummary subtotal={subtotal} deliveryFee={deliveryFee} showDelivery={mode === "delivery"} />
-            <button onClick={confirm} className="btn-primary mt-4 w-full text-base">تأكيد الطلب</button>
+            <button onClick={confirm} disabled={submitting} className="btn-primary mt-4 w-full text-base disabled:opacity-70">
+              {submitting ? "جارٍ الإرسال…" : "تأكيد الطلب"}
+            </button>
           </div>
         </div>
       </div>

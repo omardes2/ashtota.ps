@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/currency";
 import Rating from "@/components/shared/Rating";
@@ -19,12 +18,10 @@ export default function ProductCard({ product }: { product: Product }) {
   const toggleWish = useWishlistStore((s) => s.toggle);
 
   const available = !hydrated || isProductInBranch(product, branchId) || !branchId;
+  const price = (branchId && product.branchPrices?.[branchId]) || product.price;
 
-  function handleAdd() {
-    if (!branchId) {
-      openBranchModal();
-      return;
-    }
+  function open() {
+    if (!branchId) return openBranchModal();
     openCustomize(product);
   }
 
@@ -39,12 +36,10 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl2 bg-white shadow-card transition hover:shadow-lift">
       <div className="relative">
-        <Link href={`/product/${product.slug}`} aria-label={product.name}>
+        <button onClick={open} aria-label={product.name} className="block w-full">
           <ProductImage emoji={product.emoji} alt={product.name} className="aspect-square w-full" />
-        </Link>
-        {badge && (
-          <span className={`chip absolute right-2 top-2 ${badge.cls}`}>{badge.label}</span>
-        )}
+        </button>
+        {badge && <span className={`chip absolute right-2 top-2 ${badge.cls}`}>{badge.label}</span>}
         <button
           onClick={() => toggleWish(product.id)}
           aria-label={wished ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
@@ -55,19 +50,19 @@ export default function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-3">
-        <Link href={`/product/${product.slug}`} className="font-extrabold text-ink hover:text-brand">
+        <button onClick={open} className="text-right font-extrabold text-ink hover:text-brand">
           {product.name}
-        </Link>
+        </button>
         <p className="line-clamp-2 min-h-[2.4rem] text-xs text-gray-500">{product.description}</p>
-        <Rating value={product.rating} count={product.reviewsCount} />
+        {product.reviewsCount > 0 && <Rating value={product.rating} count={product.reviewsCount} />}
         <div className="mt-1 flex items-center gap-2">
-          <span className="text-lg font-black text-brand">{formatPrice(product.price)}</span>
+          <span className="text-lg font-black text-brand">{formatPrice(price)}</span>
           {product.oldPrice && (
             <span className="text-xs text-gray-400 line-through">{formatPrice(product.oldPrice)}</span>
           )}
         </div>
         <button
-          onClick={handleAdd}
+          onClick={open}
           disabled={hydrated && !available}
           className="mt-2 flex items-center justify-center gap-1 rounded-full bg-brand py-2 text-sm font-extrabold text-white transition hover:bg-brand-dark active:scale-95 disabled:bg-gray-300"
         >

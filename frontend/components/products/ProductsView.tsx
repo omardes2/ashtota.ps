@@ -1,12 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { products as ALL } from "@/data/products";
-import { categories } from "@/data/categories";
 import { useBranchStore } from "@/store/useBranchStore";
 import { useUiStore } from "@/store/useUiStore";
+import { useMenuStore } from "@/store/useMenuStore";
 import { useHydrated } from "@/lib/useHydrated";
-import { getBranch } from "@/data/branches";
 import { cn, isProductInBranch } from "@/lib/utils";
 import ProductGrid from "@/components/products/ProductGrid";
 import EmptyState from "@/components/shared/EmptyState";
@@ -19,7 +17,9 @@ export default function ProductsView() {
   const hydrated = useHydrated();
   const branchId = useBranchStore((s) => s.branchId);
   const openBranchModal = useUiStore((s) => s.openBranchModal);
-  const branch = getBranch(branchId);
+  const ALL = useMenuStore((s) => s.products);
+  const categories = useMenuStore((s) => s.categories);
+  const branch = useMenuStore((s) => s.branches.find((b) => b.id === branchId));
 
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState(initialCat);
@@ -41,7 +41,7 @@ export default function ProductsView() {
     else if (sort === "new") items.sort((a, b) => Number(b.isNew) - Number(a.isNew));
     else items.sort((a, b) => Number(b.isBestSeller) - Number(a.isBestSeller));
     return items;
-  }, [branchId, cat, query, availableOnly, sort]);
+  }, [ALL, branchId, cat, query, availableOnly, sort]);
 
   return (
     <div className="container-p py-6">

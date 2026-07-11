@@ -1,10 +1,10 @@
-import { branches } from "@/data/branches";
+"use client";
+import { useMenuStore } from "@/store/useMenuStore";
 import { formatPrice } from "@/lib/currency";
 import SectionHeader from "@/components/shared/SectionHeader";
 
-export const metadata = { title: "الفروع | قشطوطة بلبن" };
-
 export default function BranchesPage() {
+  const branches = useMenuStore((s) => s.branches);
   return (
     <div className="container-p py-6">
       <h1 className="mb-4 text-2xl font-black text-ink">فروعنا</h1>

@@ -8,6 +8,7 @@ import MobileCartBar from "@/components/layout/MobileCartBar";
 import BranchSelectorModal from "@/components/branches/BranchSelectorModal";
 import ProductCustomizationModal from "@/components/products/ProductCustomizationModal";
 import Toast from "@/components/shared/Toast";
+import MenuLoader from "@/components/MenuLoader";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <body className={`${tajawal.variable} font-sans bg-cloud antialiased`}>
+        <MenuLoader />
         <Header />
         <main className="min-h-[60vh] pb-24 md:pb-0">{children}</main>
         <Footer />
