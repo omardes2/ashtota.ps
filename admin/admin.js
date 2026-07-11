@@ -29,9 +29,94 @@ const STATUS_LABELS = {
 // حالات الطلب في التدفق المبسّط (تظهر في القائمة المنسدلة والفلاتر)
 const FLOW_STATUSES = ["new", "preparing", "out_for_delivery", "delivered", "cancelled", "rejected"];
 
+/* ------------- تنبيه صوتي للطلبات الجديدة ------------- */
+let audioCtx = null;
+function initAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) { /* الصوت غير مدعوم */ }
+}
+function beep(times = 3) {
+  if (!audioCtx) return;
+  try {
+    const t0 = audioCtx.currentTime;
+    for (let i = 0; i < times; i++) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = "sine"; o.frequency.value = 880;
+      const s = t0 + i * 0.28;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.35, s + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.22);
+      o.start(s); o.stop(s + 0.24);
+    }
+  } catch (e) { /* تجاهل */ }
+}
+
+/* ------------- مراقبة الطلبات الجديدة ------------- */
+let lastMaxOrderId = null, orderPollT = null;
+function startOrderPolling() {
+  stopOrderPolling();
+  pollOrders();
+  orderPollT = setInterval(pollOrders, 15000);
+}
+function stopOrderPolling() { if (orderPollT) clearInterval(orderPollT); orderPollT = null; }
+async function pollOrders() {
+  const r = await call("orders_ping");
+  if (!r.ok) return;
+  if (r.serverNow) SERVER_SKEW = parseTs(r.serverNow) - Date.now();
+  if (lastMaxOrderId === null) { lastMaxOrderId = r.maxId; return; } // خط الأساس بدون تنبيه
+  if (r.maxId > lastMaxOrderId) {
+    lastMaxOrderId = r.maxId;
+    beep(); toast("🔔 طلب جديد وصل!");
+    const active = document.querySelector("#nav button.active");
+    const v = active && active.dataset.view;
+    if (v === "orders") viewOrders();
+    else if (v === "dashboard") viewDashboard();
+  }
+}
+
+/* ------------- عدّاد مدة الطلب (آمن مع فرق التوقيت) ------------- */
+let SERVER_SKEW = 0; // ms: توقيت الخادم - توقيت المتصفح لحظة الجلب
+let timerInt = null;
+// تحويل "YYYY-MM-DD HH:MM:SS" إلى ms بإطار محلي ثابت (يُلغي فرق المناطق عند الطرح)
+function parseTs(s) {
+  if (!s) return null;
+  const [d, t] = String(s).split(" ");
+  const [Y, M, D] = d.split("-").map(Number);
+  const [h, mi, se] = (t || "0:0:0").split(":").map(Number);
+  return new Date(Y, (M || 1) - 1, D || 1, h || 0, mi || 0, se || 0).getTime();
+}
+function fmtDur(ms) {
+  if (ms < 0 || isNaN(ms)) ms = 0;
+  const s = Math.floor(ms / 1000);
+  const p = n => String(n).padStart(2, "0");
+  return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
+}
+function startTimers() { if (timerInt) return; timerInt = setInterval(tickTimers, 1000); tickTimers(); }
+function tickTimers() {
+  const now = Date.now() + SERVER_SKEW;
+  document.querySelectorAll(".ord-timer").forEach(el => {
+    const c = parseTs(el.dataset.c);
+    const st = el.dataset.s;
+    if (!c) { el.textContent = "—"; return; }
+    if (st === "cancelled" || st === "rejected") { el.textContent = "—"; el.className = "ord-timer"; return; }
+    if (st === "delivered" || st === "completed") {
+      const d = parseTs(el.dataset.d);
+      el.className = "ord-timer done";
+      el.textContent = d ? "⏱ " + fmtDur(d - c) : "✅ تم التسليم";
+      return;
+    }
+    el.className = "ord-timer run";
+    el.textContent = "⏱ " + fmtDur(now - c);
+  });
+}
+
 /* ------------- دخول ------------- */
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  initAudio(); // تفعيل الصوت ضمن إيماءة المستخدم
   $("#lgErr").textContent = "";
   const r = await call("login", { username: $("#lgUser").value.trim(), password: $("#lgPass").value });
   if (r.ok) { CSRF = r.csrf; ADMIN = r.admin; enterApp(); }
@@ -39,6 +124,8 @@ $("#loginForm").addEventListener("submit", async (e) => {
 });
 
 $("#logoutBtn").addEventListener("click", async () => { await call("logout"); location.reload(); });
+// تفعيل الصوت عند أول تفاعل (يشمل الجلسات المستعادة تلقائيًا)
+document.addEventListener("click", initAudio);
 
 async function boot() {
   const r = await call("me");
@@ -55,6 +142,8 @@ async function enterApp() {
   const b = await call("branches_list"); if (b.ok) BRANCHES = b.branches;
   const c = await call("categories_list"); if (c.ok) CATS = c.categories;
   navTo("dashboard");
+  startOrderPolling();
+  startTimers();
 }
 
 function buildNav() {
@@ -112,7 +201,11 @@ async function viewDashboard() {
       <button class="btn-ghost btn-sm" onclick="document.querySelector('[data-view=orders]').click()">عرض الكل</button></div>
       <div id="recentOrders" class="empty">…</div></div>`;
   const o = await call("orders_list");
-  if (o.ok) $("#recentOrders").innerHTML = ordersTable(o.orders.slice(0, 8));
+  if (o.ok) {
+    if (o.serverNow) SERVER_SKEW = parseTs(o.serverNow) - Date.now();
+    $("#recentOrders").innerHTML = ordersTable(o.orders.slice(0, 8));
+    tickTimers();
+  }
 }
 
 /* ------------- الطلبات ------------- */
@@ -120,6 +213,7 @@ let ordersFilter = "";
 async function viewOrders() {
   const chips = ["", ...FLOW_STATUSES];
   const r = await call("orders_list", { status: ordersFilter });
+  if (r.ok && r.serverNow) SERVER_SKEW = parseTs(r.serverNow) - Date.now();
   content.innerHTML = `
     <div class="panel">
       <div class="chip-row">
@@ -128,6 +222,7 @@ async function viewOrders() {
       <div id="ordersBody">${r.ok ? ordersTable(r.orders) : err(r)}</div>
     </div>`;
   content.querySelectorAll(".chip[data-f]").forEach(ch => ch.addEventListener("click", () => { ordersFilter = ch.dataset.f; viewOrders(); }));
+  tickTimers();
 }
 
 function ordersTable(orders) {
@@ -142,7 +237,8 @@ function ordersTable(orders) {
         <td>${o.mode === "delivery" ? "🛵 توصيل" : "🏬 استلام"}</td>
         <td><b>${money(o.total)}</b></td>
         <td><span class="badge b-${o.status}">${STATUS_LABELS[o.status] || o.status}</span></td>
-        <td class="muted">${esc((o.created_at || "").slice(5, 16))}</td>
+        <td class="muted">${esc((o.created_at || "").slice(5, 16))}<br>
+          <span class="ord-timer" data-c="${esc(o.created_at || "")}" data-d="${esc(o.delivered_at || "")}" data-s="${esc(o.status)}">…</span></td>
         <td><div class="ord-actions">
           <button class="btn-ghost btn-sm" onclick="openOrder(${o.id})">تفاصيل</button>
           <button class="btn-ghost btn-sm" onclick="printOrder(${o.id})">🖨 طباعة</button>

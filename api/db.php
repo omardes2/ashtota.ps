@@ -82,7 +82,7 @@ function ensure_migrations(): void {
     return; // النظام غير مثبّت بعد
   }
   $ver = (int)($row['sval'] ?? 0);
-  if ($ver >= 6) return;
+  if ($ver >= 7) return;
 
   // v3: أعمدة الأحجام/الإضافات/الصورة للمنتجات + تحويل مجموعات الخيارات
   if ($ver < 3) {
@@ -122,9 +122,14 @@ function ensure_migrations(): void {
     } catch (Throwable $e) { /* موجود */ }
   }
 
+  // v7: وقت تسليم الطلب (لحساب مدة الطلب)
+  if ($ver < 7) {
+    try { $p->exec("ALTER TABLE orders ADD COLUMN delivered_at TEXT"); } catch (Throwable $e) { /* موجود */ }
+  }
+
   $up = $p->prepare(DB_DRIVER === 'mysql'
-    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','6')"
-    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','6')");
+    ? "REPLACE INTO settings (skey,sval) VALUES ('schema_version','7')"
+    : "INSERT OR REPLACE INTO settings (skey,sval) VALUES ('schema_version','7')");
   $up->execute();
 }
 

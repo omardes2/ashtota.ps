@@ -34,7 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($row['status'] !== 'out_for_delivery') {
     json_out(['ok' => false, 'error' => 'not_allowed', 'status' => $row['status']], 409);
   }
-  $p->prepare("UPDATE orders SET status='delivered' WHERE id=?")->execute([(int)$row['id']]);
+  $p->prepare("UPDATE orders SET status='delivered', delivered_at=COALESCE(delivered_at, ?) WHERE id=?")
+    ->execute([now_str(), (int)$row['id']]);
   json_out(['ok' => true, 'status' => 'delivered']);
 }
 

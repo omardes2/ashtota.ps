@@ -82,6 +82,9 @@ tr:last-child td{border-bottom:none}
 .ord-actions{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;white-space:nowrap}
 .ord-actions .btn-primary,.ord-actions .btn-ghost{width:auto;padding:6px 12px;font-size:.82rem}
 .ord-status-sel{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue);font-weight:700;font-size:.82rem}
+.ord-timer{display:inline-block;font-weight:800;font-size:.82rem;letter-spacing:.5px}
+.ord-timer.run{color:var(--sky)}
+.ord-timer.done{color:var(--green)}
 .report-custom{display:flex;gap:12px;align-items:end;flex-wrap:wrap;padding:0 16px 10px}
 .report-custom label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:700;color:var(--blue)}
 .report-custom input{padding:7px 10px;border:1px solid var(--line);border-radius:8px}

@@ -107,7 +107,16 @@ switch ($action) {
     if ($status !== '') { $sql .= " AND o.status=?"; $args[] = $status; }
     $sql .= " ORDER BY o.id DESC LIMIT 200";
     $st = $p->prepare($sql); $st->execute($args);
-    json_out(['ok' => true, 'orders' => $st->fetchAll()]);
+    json_out(['ok' => true, 'orders' => $st->fetchAll(), 'serverNow' => now_str()]);
+  }
+
+  case 'orders_ping': {
+    $sql = "SELECT COALESCE(MAX(id),0) maxid, COUNT(*) cnt FROM orders WHERE 1=1";
+    $args = [];
+    if (!$isSuper) { $sql .= " AND branch_id=?"; $args[] = (int)$myBranch; }
+    $st = $p->prepare($sql); $st->execute($args);
+    $row = $st->fetch();
+    json_out(['ok' => true, 'maxId' => (int)$row['maxid'], 'count' => (int)$row['cnt'], 'serverNow' => now_str()]);
   }
 
   case 'order_get': {
@@ -132,7 +141,12 @@ switch ($action) {
       $ord = $p->prepare("SELECT branch_id FROM orders WHERE id=?"); $ord->execute([$id]); $ord = $ord->fetch();
       if (!$ord || (int)$ord['branch_id'] !== (int)$myBranch) json_out(['ok' => false, 'error' => 'forbidden'], 403);
     }
-    $p->prepare("UPDATE orders SET status=? WHERE id=?")->execute([$status, $id]);
+    // ختم وقت التسليم عند أول انتقال إلى "تم التسليم"
+    if (in_array($status, ['delivered', 'completed'], true)) {
+      $p->prepare("UPDATE orders SET status=?, delivered_at=COALESCE(delivered_at, ?) WHERE id=?")->execute([$status, now_str(), $id]);
+    } else {
+      $p->prepare("UPDATE orders SET status=? WHERE id=?")->execute([$status, $id]);
+    }
     json_out(['ok' => true]);
   }
 

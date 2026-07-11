@@ -124,7 +124,8 @@ function install_schema(): void {
     total REAL DEFAULT 0,
     points INTEGER DEFAULT 0,
     status TEXT DEFAULT 'new',
-    created_at TEXT
+    created_at TEXT,
+    delivered_at TEXT
   )");
 
   $p->exec("CREATE TABLE IF NOT EXISTS order_items (
@@ -229,7 +230,7 @@ function seed_data(): void {
   foreach ($zones as $z) { $zStmt->execute([$bIds[$z[0]],$z[1],$z[2],$z[3],$z[4]]); }
 
   // تثبيت أحدث نسخة للمخطط (تثبيت جديد لا يحتاج ترحيلًا)
-  $set->execute(['schema_version', '6']);
+  $set->execute(['schema_version', '7']);
 }
 
 /**
