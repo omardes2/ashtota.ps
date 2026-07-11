@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="theme-color" content="#5b3a29" />
+  <meta name="description" content="قشطوطة بلبن - اطلب أشهى الحلويات بلبن أونلاين من أقرب فرع إليك في الخليل. توصيل سريع واستلام من الفرع." />
+  <title>قشطوطة بلبن | اطلب أونلاين</title>
+
+  <!-- خط عربي -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- الهيدر -->
+  <header class="app-header">
+    <div class="container">
+      <div class="logo" onclick="App.goHome()">
+        <span class="logo-badge">🍮</span>
+        <span>قشطوطة بلبن</span>
+      </div>
+      <button class="branch-pill" id="branchPill" onclick="App.openBranchSheet()">
+        <span class="dot"></span>
+        <b id="branchPillName">اختر الفرع</b>
+        <span>▾</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- الهيرو -->
+  <section class="hero">
+    <div class="container">
+      <h1>أشهى الحلويات بلبن 🍮</h1>
+      <p id="heroTagline">من أقرب فرع إليك.. اطلب الآن بسهولة</p>
+      <button class="cta" onclick="App.startOrder()">🛒 اطلب الآن</button>
+    </div>
+  </section>
+
+  <!-- شريط التصنيفات -->
+  <nav class="cats" id="catsBar"></nav>
+
+  <!-- المحتوى الرئيسي (المنتجات) -->
+  <main>
+    <section class="section">
+      <div class="container">
+        <div id="menuArea"></div>
+      </div>
+    </section>
+
+    <!-- الفروع -->
+    <section class="section" id="branchesSection">
+      <div class="container">
+        <div class="section-title">🏬 فروعنا</div>
+        <div id="branchesList"></div>
+      </div>
+    </section>
+
+    <!-- التواصل -->
+    <section class="section">
+      <div class="container">
+        <div class="section-title">📞 تواصل معنا</div>
+        <div class="info-cards" id="contactCards"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- الفوتر -->
+  <footer class="app-footer">
+    <div class="socials" id="socials"></div>
+    <div>قشطوطة بلبن © <span id="year"></span></div>
+    <small>جميع الحقوق محفوظة</small>
+  </footer>
+
+  <!-- زر واتساب عائم -->
+  <a class="wa-float" id="waFloat" target="_blank" rel="noopener">💬</a>
+
+  <!-- شريط السلة السفلي -->
+  <div class="cart-bar" id="cartBar" onclick="App.openCart()">
+    <div class="container">
+      <div class="c-count" id="cartCount">0</div>
+      <span>عرض السلة</span>
+      <span class="c-total" id="cartTotal">0 ₪</span>
+      <span class="c-go">إتمام الطلب ←</span>
+    </div>
+  </div>
+
+  <!-- طبقة العرض (Modals / Sheets) -->
+  <div class="overlay" id="overlay">
+    <div class="sheet" id="sheet"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- السكربتات -->
+  <script src="js/data.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js').catch(()=>{}));
+    }
+  </script>
+</body>
+</html>
