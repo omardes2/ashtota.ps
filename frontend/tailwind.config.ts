@@ -19,7 +19,7 @@ const config: Config = {
         accent: "#FFB703", // التنبيه والعروض
       },
       fontFamily: {
-        sans: ["var(--font-tajawal)", "Tahoma", "sans-serif"],
+        sans: ["var(--font-cairo)", "Tahoma", "sans-serif"],
       },
       borderRadius: {
         xl2: "1.25rem",

@@ -4,7 +4,7 @@
   --bg:#eef5fb; --panel:#ffffff; --line:#dce9f5; --ink:#103247; --muted:#6d879c;
   --green:#3f9d6b; --red:#e0574f; --amber:#e0a53f;
   --radius:14px; --shadow:0 6px 20px rgba(13,92,156,.10);
-  --font:"Tajawal",Tahoma,sans-serif;
+  --font:"Cairo",Tahoma,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);direction:rtl}

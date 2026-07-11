@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Tajawal } from "next/font/google";
+import { Cairo } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -10,10 +10,10 @@ import ProductCustomizationModal from "@/components/products/ProductCustomizatio
 import Toast from "@/components/shared/Toast";
 import MenuLoader from "@/components/MenuLoader";
 
-const tajawal = Tajawal({
+const cairo = Cairo({
   subsets: ["arabic"],
-  weight: ["400", "500", "700", "800", "900"],
-  variable: "--font-tajawal",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-cairo",
 });
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={`${tajawal.variable} font-sans bg-cloud antialiased`}>
+      <body className={`${cairo.variable} font-sans bg-cloud antialiased`}>
         <MenuLoader />
         <Header />
         <main className="min-h-[60vh] pb-24 md:pb-0">{children}</main>
